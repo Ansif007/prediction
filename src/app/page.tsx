@@ -1,12 +1,24 @@
 "use client";
 
-import { useState } from "react";
-import { signInWithPopup, signOut, User } from "firebase/auth";
+import { useState, useEffect } from "react";
+import { signInWithPopup, User, onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, googleProvider, db } from "../lib/firebase";
+import { motion } from "framer-motion";
+import { Trophy, Globe, Users, ArrowRight, Zap, Target } from "lucide-react";
+import Link from "next/link";
 
 export default function Home() {
   const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const login = () => {
     signInWithPopup(auth, googleProvider)
@@ -24,137 +36,125 @@ export default function Home() {
             createdAt: new Date().toISOString(),
           });
         }
-        setUser(loggedInUser);
       })
       .catch((error: any) => {
         console.error("Login Error:", error.code);
-        console.error("Message:", error.message);
       });
   };
 
-  const logout = async () => {
-    try {
-      await signOut(auth);
-      setUser(null);
-    } catch (error: any) {
-      console.error("Logout Error:", error.code);
-    }
-  };
+  if (loading) return null;
 
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        background: "#0a0a0f",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontFamily: "'DM Sans', sans-serif",
-      }}
-    >
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Bebas+Neue&display=swap');
-
-        .card {
-          background: #12121a;
-          border: 1px solid #1e1e2e;
-          border-radius: 24px;
-          padding: 48px 40px;
-          width: 100%;
-          max-width: 400px;
-          text-align: center;
-          animation: fadeIn 0.5s ease;
-        }
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(20px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        .google-btn {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 10px;
-          width: 100%;
-          padding: 14px 20px;
-          background: #fff;
-          color: #111;
-          border: none;
-          border-radius: 12px;
-          font-family: 'DM Sans', sans-serif;
-          font-weight: 600;
-          font-size: 15px;
-          cursor: pointer;
-          transition: background 0.2s, box-shadow 0.2s;
-          margin-top: 32px;
-        }
-        .google-btn:hover {
-          background: #f1f1f1;
-          box-shadow: 0 4px 20px rgba(255,255,255,0.1);
-        }
-        .logout-btn {
-          margin-top: 20px;
-          padding: 10px 24px;
-          background: transparent;
-          color: #f97316;
-          border: 1px solid #f97316;
-          border-radius: 10px;
-          font-family: 'DM Sans', sans-serif;
-          font-weight: 600;
-          font-size: 14px;
-          cursor: pointer;
-          transition: background 0.2s;
-        }
-        .logout-btn:hover {
-          background: rgba(249,115,22,0.1);
-        }
-        .avatar {
-          width: 64px;
-          height: 64px;
-          border-radius: 50%;
-          border: 2px solid #f97316;
-          margin: 0 auto 16px;
-          display: block;
-        }
-      `}</style>
-
-      <div className="card">
-        {/* Logo */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 32 }}>
-          <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#f97316", boxShadow: "0 0 10px #f97316" }} />
-          <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: "#f1f1f5", letterSpacing: 3 }}>
-            PREDICTIFY
-          </span>
+    <main className="relative min-h-[calc(100vh-60px)] md:min-h-[calc(100vh-80px)] overflow-hidden">
+      {/* Hero Section with Image Background */}
+      <div className="relative min-h-[90vh] md:h-[85vh] flex items-center justify-center text-white pt-10 pb-20 md:py-0">
+        <div className="absolute inset-0 bg-worldcup">
+          <div className="absolute inset-0 bg-gradient-to-b from-red-900/70 via-red-900/50 to-white" />
         </div>
 
-        {!user ? (
-          <>
-            <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 40, color: "#f1f1f5", letterSpacing: 2, margin: "0 0 8px" }}>
-              PLACE YOUR BET
-            </h1>
-            <p style={{ color: "#555", fontSize: 14, margin: 0 }}>
-              Sign in to predict match outcomes and earn points
-            </p>
-            <button onClick={login} className="google-btn">
-              <svg width="18" height="18" viewBox="0 0 48 48">
-                <path fill="#FFC107" d="M43.6 20H24v8h11.3C33.7 33.1 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34.1 6.5 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20c11 0 19.6-8 19.6-20 0-1.3-.1-2.7-.4-4z"/>
-                <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34.1 6.5 29.3 4 24 4c-7.7 0-14.4 4.3-17.7 10.7z"/>
-                <path fill="#4CAF50" d="M24 44c5.2 0 9.9-1.9 13.5-5l-6.2-5.2C29.4 35.5 26.8 36.5 24 36.5c-5.2 0-9.6-3.5-11.2-8.3l-6.5 5C9.7 39.8 16.4 44 24 44z"/>
-                <path fill="#1976D2" d="M43.6 20H24v8h11.3c-.8 2.3-2.3 4.3-4.3 5.8l6.2 5.2C41.1 35.5 44 30.2 44 24c0-1.3-.1-2.7-.4-4z"/>
-              </svg>
-              Sign in with Google
-            </button>
-          </>
-        ) : (
-          <>
-            {user.photoURL && <img src={user.photoURL} alt="avatar" className="avatar" />}
-            <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 32, color: "#f1f1f5", letterSpacing: 2, margin: "0 0 4px" }}>
-              {user.displayName}
-            </h1>
-            <p style={{ color: "#555", fontSize: 13, marginBottom: 0 }}>{user.email}</p>
-            <button onClick={logout} className="logout-btn">Sign Out</button>
-          </>
-        )}
+        <div className="relative z-10 max-w-5xl px-6 text-center space-y-6 md:space-y-8">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-full bg-white/20 backdrop-blur-md border border-white/30 text-[10px] md:text-xs font-black uppercase tracking-[0.2em]"
+          >
+            <Zap className="w-3 h-3 md:w-4 md:h-4 text-yellow-400 fill-yellow-400" />
+            Official Internal Contest
+          </motion.div>
+
+          <motion.h1
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="text-5xl md:text-8xl font-black italic tracking-tighter leading-[0.9] md:leading-none font-bebas"
+          >
+            THE ULTIMATE <br />
+            <span className="text-white underline decoration-red-600 decoration-4 md:decoration-8 underline-offset-4 md:underline-offset-8">WORLD CUP</span> <br />
+            CHALLENGE
+          </motion.h1>
+
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.4 }}
+            className="text-base md:text-xl font-bold text-white/90 max-w-2xl mx-auto drop-shadow-lg px-4"
+          >
+            Predict results, earn points, and compete with your colleagues. 
+            The beautiful game meets office glory.
+          </motion.p>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6 }}
+            className="flex flex-col sm:flex-row items-center justify-center gap-3 md:gap-4 pt-4 md:pt-6 w-full max-w-sm mx-auto sm:max-w-none"
+          >
+            {user ? (
+              <Link
+                href="/dashboard"
+                className="group w-full sm:w-auto flex items-center justify-center gap-3 px-8 md:px-10 py-4 md:py-5 bg-red-600 text-white font-black uppercase tracking-widest rounded-2xl hover:bg-red-700 transition-all hover:scale-105 shadow-2xl shadow-red-500/40 active:scale-95 text-sm md:text-base"
+              >
+                Go to Arena
+                <ArrowRight className="w-4 h-4 md:w-5 md:h-5 group-hover:translate-x-1 transition-transform" />
+              </Link>
+            ) : (
+              <button
+                onClick={login}
+                className="w-full sm:w-auto flex items-center justify-center gap-3 px-8 md:px-10 py-4 md:py-5 bg-white text-red-600 font-black uppercase tracking-widest rounded-2xl hover:bg-red-50 transition-all hover:scale-105 shadow-2xl shadow-red-100 active:scale-95 text-sm md:text-base"
+              >
+                <img src="https://www.google.com/favicon.ico" alt="Google" className="w-4 h-4 md:w-5 md:h-5" />
+                Sign in with Google
+              </button>
+            )}
+            
+            <Link
+              href="/leaderboard"
+              className="w-full sm:w-auto px-8 md:px-10 py-4 md:py-5 bg-white/10 backdrop-blur-md border-2 border-white/30 text-white font-black uppercase tracking-widest rounded-2xl hover:bg-white/20 transition-all text-sm md:text-base"
+            >
+              Leaderboard
+            </Link>
+          </motion.div>
+        </div>
+      </div>
+
+      {/* Stats/Features Section */}
+      <div className="max-w-7xl mx-auto px-6 -mt-10 md:-mt-20 relative z-20 pb-16 md:pb-20">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8">
+          <FeatureCard 
+            icon={<Target className="w-6 h-6 md:w-8 md:h-8 text-red-600" />}
+            title="Predict Matches"
+            desc="Submit your scores before kickoff. Every goal counts towards your rank."
+            color="bg-red-50"
+          />
+          <FeatureCard 
+            icon={<Trophy className="w-6 h-6 md:w-8 md:h-8 text-yellow-600" />}
+            title="Win Prizes"
+            desc="Top 3 predictors win exclusive company rewards and the bragging rights."
+            color="bg-yellow-50"
+          />
+          <FeatureCard 
+            icon={<Users className="w-6 h-6 md:w-8 md:h-8 text-red-400" />}
+            title="Office Rivalry"
+            desc="See how you stack up against your team and the whole department."
+            color="bg-red-50"
+          />
+        </div>
       </div>
     </main>
+  );
+}
+
+function FeatureCard({ icon, title, desc, color }: { icon: React.ReactNode, title: string, desc: string, color: string }) {
+  return (
+    <motion.div 
+      whileHover={{ y: -10 }}
+      className={`p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] bg-white border border-red-100 card-shadow text-left group transition-all`}
+    >
+      <div className={`w-12 h-12 md:w-16 md:h-16 rounded-xl md:rounded-2xl ${color} flex items-center justify-center mb-4 md:mb-6 group-hover:scale-110 transition-transform`}>
+        {icon}
+      </div>
+      <h3 className="text-xl md:text-2xl font-black italic uppercase tracking-tighter text-red-700 mb-2 md:mb-3 font-bebas">{title}</h3>
+      <p className="text-sm md:text-base text-red-400 font-medium leading-relaxed">{desc}</p>
+    </motion.div>
   );
 }

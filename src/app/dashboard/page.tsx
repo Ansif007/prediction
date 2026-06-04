@@ -1,280 +1,205 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, getDocs } from "firebase/firestore";
-import { db } from "../../lib/firebase";
+import { collection, getDocs, Timestamp, query, where } from "firebase/firestore";
+import { auth, db } from "../../lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
 import Link from "next/link";
+import { motion } from "framer-motion";
+import { Calendar, ChevronRight, Timer, Trophy, Globe } from "lucide-react";
 
 interface Match {
   id: string;
   teamA: string;
   teamB: string;
-  kickoffTime: string;
+  kickoffTime: any;
   status: string;
   result: string | null;
 }
 
-function formatKickoff(iso: string) {
+function formatKickoff(time: any) {
   try {
-    const d = new Date(iso);
+    const d = time instanceof Timestamp ? time.toDate() : new Date(time);
     return d.toLocaleString("en-US", {
       weekday: "short",
       month: "short",
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
-      timeZoneName: "short",
     });
   } catch {
-    return iso;
+    return time?.toString() || "";
   }
 }
 
 export default function Dashboard() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userRank, setUserRank] = useState<number | string>("--");
+  const [userPoints, setUserPoints] = useState<number>(0);
 
   useEffect(() => {
-    const fetchMatches = async () => {
+    const fetchData = async (user: any) => {
       try {
+        // Fetch Matches
         const querySnapshot = await getDocs(collection(db, "matches"));
         const matchList: Match[] = querySnapshot.docs.map((doc) => ({
           id: doc.id,
           ...(doc.data() as Omit<Match, "id">),
         }));
+        // Sort matches by kickoff time
+        matchList.sort((a, b) => {
+          const timeA = a.kickoffTime instanceof Timestamp ? a.kickoffTime.toDate().getTime() : new Date(a.kickoffTime).getTime();
+          const timeB = b.kickoffTime instanceof Timestamp ? b.kickoffTime.toDate().getTime() : new Date(b.kickoffTime).getTime();
+          return timeA - timeB;
+        });
         setMatches(matchList);
+
+        // Fetch User Rank and Points
+        if (user) {
+          const usersSnap = await getDocs(query(collection(db, "users"), where("role", "==", "user")));
+          const allUsers = usersSnap.docs.map(doc => ({
+            id: doc.id,
+            points: doc.data().totalPoints || 0
+          })).sort((a, b) => b.points - a.points);
+
+          const currentUserData = allUsers.find(u => u.id === user.uid);
+          if (currentUserData) {
+            setUserPoints(currentUserData.points);
+            // Handling same points = same rank
+            const rank = allUsers.findIndex(u => u.points <= currentUserData.points) + 1;
+            setUserRank(rank);
+          }
+        }
       } catch (error) {
-        console.error("Error fetching matches:", error);
+        console.error("Error fetching data:", error);
       } finally {
         setLoading(false);
       }
     };
-    fetchMatches();
+
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      fetchData(user);
+    });
+
+    return () => unsubscribe();
   }, []);
 
-  return (
-    <main
-      style={{
-        minHeight: "100vh",
-        background: "#0a0a0f",
-        fontFamily: "'DM Sans', sans-serif",
-        padding: "0",
-      }}
-    >
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Bebas+Neue&display=swap');
-
-        .match-card {
-          background: #12121a;
-          border: 1px solid #1e1e2e;
-          border-radius: 16px;
-          padding: 24px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 16px;
-          transition: border-color 0.2s, transform 0.2s;
-          animation: fadeUp 0.4s ease both;
-        }
-        .match-card:hover {
-          border-color: #f97316;
-          transform: translateY(-2px);
-        }
-        @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(16px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        .match-card:nth-child(1) { animation-delay: 0.05s; }
-        .match-card:nth-child(2) { animation-delay: 0.10s; }
-        .match-card:nth-child(3) { animation-delay: 0.15s; }
-        .match-card:nth-child(4) { animation-delay: 0.20s; }
-
-        .teams {
-          display: flex;
-          align-items: center;
-          gap: 14px;
-          flex: 1;
-        }
-        .team-name {
-          font-family: 'Bebas Neue', sans-serif;
-          font-size: 26px;
-          color: #f1f1f5;
-          letter-spacing: 1px;
-        }
-        .vs-badge {
-          background: #1e1e2e;
-          color: #555570;
-          font-size: 11px;
-          font-weight: 600;
-          letter-spacing: 2px;
-          padding: 4px 8px;
-          border-radius: 6px;
-          text-transform: uppercase;
-        }
-        .meta {
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-          min-width: 200px;
-        }
-        .kickoff {
-          font-size: 13px;
-          color: #888;
-        }
-        .kickoff span {
-          color: #aaa;
-          font-weight: 500;
-        }
-        .status-pill {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          font-size: 12px;
-          font-weight: 600;
-          letter-spacing: 0.5px;
-          text-transform: uppercase;
-          color: #22c55e;
-        }
-        .status-pill::before {
-          content: '';
-          width: 6px;
-          height: 6px;
-          border-radius: 50%;
-          background: #22c55e;
-          display: inline-block;
-          box-shadow: 0 0 6px #22c55e;
-        }
-        .predict-btn {
-          background: #f97316;
-          color: #fff;
-          font-family: 'DM Sans', sans-serif;
-          font-weight: 600;
-          font-size: 14px;
-          letter-spacing: 0.3px;
-          padding: 10px 22px;
-          border-radius: 10px;
-          border: none;
-          text-decoration: none;
-          white-space: nowrap;
-          transition: background 0.2s, box-shadow 0.2s;
-          box-shadow: 0 0 0 0 #f97316;
-        }
-        .predict-btn:hover {
-          background: #ea6b0a;
-          box-shadow: 0 0 20px rgba(249,115,22,0.4);
-        }
-        .skeleton {
-          background: linear-gradient(90deg, #12121a 25%, #1a1a26 50%, #12121a 75%);
-          background-size: 200% 100%;
-          animation: shimmer 1.4s infinite;
-          border-radius: 16px;
-          height: 88px;
-        }
-        @keyframes shimmer {
-          0% { background-position: 200% 0; }
-          100% { background-position: -200% 0; }
-        }
-
-        @media (max-width: 600px) {
-          .match-card { flex-direction: column; align-items: flex-start; }
-          .meta { min-width: unset; }
-        }
-      `}</style>
-
-      {/* Header */}
-      <div
-        style={{
-          borderBottom: "1px solid #1e1e2e",
-          padding: "20px 40px",
-          display: "flex",
-          alignItems: "center",
-          gap: "12px",
-        }}
-      >
-        <div
-          style={{
-            width: 10,
-            height: 10,
-            borderRadius: "50%",
-            background: "#f97316",
-            boxShadow: "0 0 10px #f97316",
-          }}
-        />
-        <span
-          style={{
-            fontFamily: "'Bebas Neue', sans-serif",
-            fontSize: 20,
-            color: "#f1f1f5",
-            letterSpacing: 2,
-          }}
-        >
-          PREDICTIFY
-        </span>
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="w-10 h-10 border-4 border-red-200 border-t-red-600 rounded-full animate-spin" />
       </div>
+    );
+  }
 
-      {/* Content */}
-      <div style={{ maxWidth: 780, margin: "0 auto", padding: "48px 24px" }}>
-        <div style={{ marginBottom: 36 }}>
-          <p
-            style={{
-              fontFamily: "'Bebas Neue', sans-serif",
-              fontSize: 11,
-              letterSpacing: 4,
-              color: "#f97316",
-              textTransform: "uppercase",
-              marginBottom: 8,
-            }}
-          >
-            Live &amp; Upcoming
-          </p>
-          <h1
-            style={{
-              fontFamily: "'Bebas Neue', sans-serif",
-              fontSize: 52,
-              color: "#f1f1f5",
-              letterSpacing: 2,
-              lineHeight: 1,
-              margin: 0,
-            }}
-          >
-            MATCHES
+  return (
+    <main className="max-w-6xl mx-auto px-4 md:px-6 py-8 md:py-12">
+      <header className="mb-8 md:mb-16 flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="space-y-2 md:space-y-4 text-center md:text-left">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-50 text-red-600 text-[10px] md:text-xs font-black uppercase tracking-widest mx-auto md:mx-0">
+            <Globe className="w-3 h-3" />
+            Live Arena
+          </div>
+          <h1 className="text-4xl md:text-5xl font-black italic tracking-tighter text-red-700 font-bebas">
+            MATCH <span className="text-red-600 underline decoration-red-100 underline-offset-4 md:underline-offset-8">SCHEDULE</span>
           </h1>
+          <p className="text-sm md:text-base text-red-400 font-medium px-4 md:px-0">Select a battle to lock in your prediction.</p>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {loading ? (
-            <>
-              <div className="skeleton" />
-              <div className="skeleton" style={{ animationDelay: "0.2s" }} />
-              <div className="skeleton" style={{ animationDelay: "0.4s" }} />
-            </>
-          ) : matches.length === 0 ? (
-            <p style={{ color: "#555", textAlign: "center", padding: "48px 0" }}>
-              No upcoming matches found.
-            </p>
-          ) : (
-            matches.map((match) => (
-              <div key={match.id} className="match-card">
-                <div className="teams">
-                  <span className="team-name">{match.teamA}</span>
-                  <span className="vs-badge">VS</span>
-                  <span className="team-name">{match.teamB}</span>
-                </div>
+        <div className="flex justify-center md:justify-end gap-4">
+          <div className="p-3 md:p-4 bg-red-50 rounded-2xl border border-red-100 flex items-center gap-3 md:gap-4">
+            <div className="w-8 h-8 md:w-10 md:h-10 bg-white rounded-xl flex items-center justify-center shadow-sm">
+              <Trophy className="w-4 h-4 md:w-5 md:h-5 text-yellow-600" />
+            </div>
+            <div>
+              <div className="text-[8px] md:text-[10px] font-bold text-red-300 uppercase tracking-widest leading-none mb-1">Your Rank</div>
+              <div className="text-lg md:text-xl font-black text-red-700 leading-none font-bebas">#{userRank}</div>
+            </div>
+          </div>
+        </div>
+      </header>
 
-                <div className="meta">
-                  <div className="kickoff">
-                    <span>{formatKickoff(match.kickoffTime)}</span>
+      <div className="grid gap-4 md:gap-6">
+        {matches.map((match, index) => (
+          <motion.div
+            key={match.id}
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: index * 0.1 }}
+          >
+            <Link
+              href={`/predict/${match.id}`}
+              className="group block bg-white border border-red-50 rounded-[1.5rem] md:rounded-[2rem] p-4 md:p-8 card-shadow hover:border-red-400 transition-all active:scale-[0.98]"
+            >
+              <div className="flex flex-col lg:flex-row items-center gap-4 md:gap-8">
+                {/* Time & Status */}
+                <div className="flex lg:flex-col items-center lg:items-start justify-between w-full lg:w-auto gap-2 lg:min-w-[160px]">
+                  <div className={`px-3 py-1 md:px-4 md:py-1.5 rounded-full text-[8px] md:text-[10px] font-black uppercase tracking-[0.15em] ${
+                    match.status === 'live' ? 'bg-red-600 text-white animate-pulse' : 'bg-red-50 text-red-400 border border-red-100'
+                  }`}>
+                    {match.status}
                   </div>
-                  <div className="status-pill">{match.status}</div>
+                  <div className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm font-bold text-red-300">
+                    <Calendar className="w-3 h-3 md:w-4 md:h-4" />
+                    {formatKickoff(match.kickoffTime)}
+                  </div>
                 </div>
 
-                <Link href={`/predict/${match.id}`} className="predict-btn">
-                  Predict →
-                </Link>
+                {/* Match UI */}
+                <div className="flex-1 flex items-center justify-between md:justify-center gap-2 md:gap-12 w-full pt-2 md:pt-0">
+                  {/* Team A */}
+                  <div className="flex-1 flex flex-col md:flex-row items-center justify-end gap-2 md:gap-4 text-center md:text-right">
+                    <div className="w-12 h-12 md:w-20 md:h-20 rounded-xl md:rounded-2xl bg-red-50 border border-red-100 flex items-center justify-center overflow-hidden group-hover:scale-110 transition-transform shadow-sm">
+                      <img 
+                        src={`https://api.dicebear.com/7.x/identicon/svg?seed=${match.teamA}&backgroundColor=fef2f2`} 
+                        alt={match.teamA} 
+                        className="w-8 h-8 md:w-12 md:h-12"
+                      />
+                    </div>
+                    <span className="text-lg md:text-4xl font-black italic uppercase tracking-tighter text-red-700 font-bebas line-clamp-1">
+                      {match.teamA}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col items-center">
+                    <div className="w-8 h-8 md:w-12 md:h-12 rounded-full bg-red-600 flex items-center justify-center text-white font-black italic text-sm md:text-xl shadow-lg shadow-red-200 shrink-0">
+                      VS
+                    </div>
+                  </div>
+
+                  {/* Team B */}
+                  <div className="flex-1 flex flex-col md:flex-row items-center justify-start gap-2 md:gap-4 text-center md:text-left">
+                    <div className="w-12 h-12 md:w-20 md:h-20 rounded-xl md:rounded-2xl bg-red-50 border border-red-100 flex items-center justify-center overflow-hidden group-hover:scale-110 transition-transform shadow-sm md:order-1 order-1">
+                      <img 
+                        src={`https://api.dicebear.com/7.x/identicon/svg?seed=${match.teamB}&backgroundColor=fef2f2`} 
+                        alt={match.teamB} 
+                        className="w-8 h-8 md:w-12 md:h-12"
+                      />
+                    </div>
+                    <span className="text-lg md:text-4xl font-black italic uppercase tracking-tighter text-red-700 font-bebas line-clamp-1 md:order-2 order-2">
+                      {match.teamB}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Action Icon (Desktop Only) */}
+                <div className="hidden lg:flex items-center justify-center pl-8">
+                  <div className="w-12 h-12 rounded-2xl bg-red-50 group-hover:bg-red-600 group-hover:text-white flex items-center justify-center text-red-300 transition-all border border-red-100">
+                    <ChevronRight className="w-6 h-6" />
+                  </div>
+                </div>
               </div>
-            ))
-          )}
-        </div>
+            </Link>
+          </motion.div>
+        ))}
+
+        {matches.length === 0 && (
+          <div className="text-center py-20 md:py-32 rounded-[2rem] md:rounded-[3rem] border-4 border-dashed border-red-100 bg-red-50/50">
+            <Globe className="w-12 h-12 md:w-16 md:h-16 text-red-200 mx-auto mb-4 md:mb-6" />
+            <p className="text-red-300 font-black italic uppercase tracking-widest font-bebas text-xl md:text-2xl">No battles scheduled yet</p>
+          </div>
+        )}
       </div>
     </main>
   );

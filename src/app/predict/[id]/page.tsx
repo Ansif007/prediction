@@ -1,8 +1,11 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
 import { auth, db } from "../../../lib/firebase";
+import { motion, AnimatePresence } from "framer-motion";
+import { Trophy, ArrowLeft, Target, Timer, CheckCircle2, AlertCircle } from "lucide-react";
+import Link from "next/link";
 
 export default function PredictPage({
   params,
@@ -14,6 +17,8 @@ export default function PredictPage({
   const [prediction, setPrediction] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     const loadMatch = async () => {
@@ -22,19 +27,33 @@ export default function PredictPage({
       if (docSnap.exists()) {
         const data = docSnap.data();
         setMatch(data);
-        const kickoff = new Date(data.kickoffTime);
+        const kickoff = data.kickoffTime instanceof Timestamp 
+          ? data.kickoffTime.toDate() 
+          : new Date(data.kickoffTime);
         const lockTime = new Date(kickoff.getTime() - 10 * 60 * 1000);
         setIsLocked(new Date() >= lockTime);
       }
     };
+
+    const checkAdmin = async () => {
+      const user = auth.currentUser;
+      if (user) {
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        setIsAdmin(userDoc.exists() && userDoc.data().role === "admin");
+      }
+    };
+
     loadMatch();
+    checkAdmin();
   }, [id]);
 
   const handleSubmit = async () => {
-    if (isLocked) return alert("Predictions close 10 minutes before kickoff.");
-    if (!prediction) return alert("Please select a prediction.");
+    if (isLocked) return;
+    if (!prediction) return;
     const user = auth.currentUser;
-    if (!user) return alert("You must be logged in.");
+    if (!user) return;
+    
+    setSubmitting(true);
     try {
       const predictionId = `${user.uid}_${id}`;
       await setDoc(doc(db, "predictions", predictionId), {
@@ -46,204 +65,155 @@ export default function PredictPage({
       setSubmitted(true);
     } catch (error) {
       console.error(error);
-      alert("Failed to save prediction");
+    } finally {
+      setSubmitting(false);
     }
   };
 
   if (!match) {
     return (
-      <main style={{ minHeight: "100vh", background: "#0a0a0f", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <style>{`
-          @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap');
-          .pulse { animation: pulse 1.5s ease-in-out infinite; }
-          @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
-        `}</style>
-        <span className="pulse" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 24, color: "#f97316", letterSpacing: 4 }}>
-          LOADING...
-        </span>
-      </main>
-    );
-  }
-
-  if (submitted) {
-    return (
-      <main style={{ minHeight: "100vh", background: "#0a0a0f", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', sans-serif" }}>
-        <style>{`
-          @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap');
-          .success-card { animation: popIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both; }
-          @keyframes popIn { from { opacity:0; transform:scale(0.85); } to { opacity:1; transform:scale(1); } }
-        `}</style>
-        <div className="success-card" style={{ background: "#12121a", border: "1px solid #22c55e", borderRadius: 24, padding: "48px 40px", textAlign: "center", maxWidth: 400, width: "100%" }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>⚽</div>
-          <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 40, color: "#22c55e", letterSpacing: 2, margin: "0 0 8px" }}>
-            LOCKED IN!
-          </h2>
-          <p style={{ color: "#888", fontSize: 14, marginBottom: 20 }}>Your prediction has been submitted</p>
-          <div style={{ background: "#1a2a1a", border: "1px solid #22c55e33", borderRadius: 12, padding: "16px 24px" }}>
-            <p style={{ color: "#555", fontSize: 12, letterSpacing: 2, textTransform: "uppercase", margin: "0 0 4px" }}>You predicted</p>
-            <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 28, color: "#f1f1f5", letterSpacing: 1, margin: 0 }}>{prediction}</p>
-          </div>
-        </div>
-      </main>
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="w-10 h-10 border-4 border-red-200 border-t-red-600 rounded-full animate-spin" />
+      </div>
     );
   }
 
   return (
-    <main style={{ minHeight: "100vh", background: "#0a0a0f", fontFamily: "'DM Sans', sans-serif" }}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap');
+    <main className="max-w-4xl mx-auto px-4 md:px-6 py-6 md:py-12 pb-24 md:pb-12">
+      <Link 
+        href="/dashboard" 
+        className="inline-flex items-center gap-2 text-red-300 hover:text-red-600 font-bold uppercase tracking-widest text-[10px] md:text-xs mb-6 md:mb-8 transition-colors group"
+      >
+        <ArrowLeft className="w-3.5 h-3.5 md:w-4 md:h-4 group-hover:-translate-x-1 transition-transform" />
+        Back to Arena
+      </Link>
 
-        .option-card {
-          background: #12121a;
-          border: 2px solid #1e1e2e;
-          border-radius: 16px;
-          padding: 20px 24px;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          transition: border-color 0.2s, background 0.2s, transform 0.15s;
-          animation: fadeUp 0.4s ease both;
-        }
-        .option-card:hover {
-          border-color: #f97316;
-          transform: translateX(4px);
-        }
-        .option-card.selected {
-          border-color: #f97316;
-          background: #1a1208;
-        }
-        .option-card.locked {
-          cursor: not-allowed;
-          opacity: 0.5;
-        }
-        .option-card:nth-child(1) { animation-delay: 0.1s; }
-        .option-card:nth-child(2) { animation-delay: 0.2s; }
-        .option-card:nth-child(3) { animation-delay: 0.3s; }
-
-        @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(16px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-
-        .radio-dot {
-          width: 20px;
-          height: 20px;
-          border-radius: 50%;
-          border: 2px solid #333;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: border-color 0.2s;
-          flex-shrink: 0;
-        }
-        .option-card.selected .radio-dot { border-color: #f97316; }
-        .radio-inner {
-          width: 10px;
-          height: 10px;
-          border-radius: 50%;
-          background: #f97316;
-          transform: scale(0);
-          transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1);
-        }
-        .option-card.selected .radio-inner { transform: scale(1); }
-
-        .submit-btn {
-          width: 100%;
-          padding: 16px;
-          background: #f97316;
-          color: #fff;
-          border: none;
-          border-radius: 14px;
-          font-family: 'Bebas Neue', sans-serif;
-          font-size: 20px;
-          letter-spacing: 2px;
-          cursor: pointer;
-          transition: background 0.2s, box-shadow 0.2s, transform 0.15s;
-          margin-top: 24px;
-        }
-        .submit-btn:hover:not(:disabled) {
-          background: #ea6b0a;
-          box-shadow: 0 0 30px rgba(249,115,22,0.4);
-          transform: translateY(-1px);
-        }
-        .submit-btn:disabled {
-          background: #2a2a2a;
-          color: #444;
-          cursor: not-allowed;
-          box-shadow: none;
-          transform: none;
-        }
-        .locked-banner {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          background: #1a0a0a;
-          border: 1px solid #7f1d1d;
-          border-radius: 10px;
-          padding: 12px 16px;
-          margin-bottom: 20px;
-          font-size: 13px;
-          color: #f87171;
-          font-weight: 500;
-        }
-      `}</style>
-
-      {/* Header */}
-      <div style={{ borderBottom: "1px solid #1e1e2e", padding: "20px 40px", display: "flex", alignItems: "center", gap: 12 }}>
-        <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#f97316", boxShadow: "0 0 10px #f97316" }} />
-        <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, color: "#f1f1f5", letterSpacing: 2 }}>
-          PREDICTIFY
-        </span>
-      </div>
-
-      <div style={{ maxWidth: 540, margin: "0 auto", padding: "48px 24px" }}>
-        <div style={{ marginBottom: 40 }}>
-          <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 11, letterSpacing: 4, color: "#f97316", textTransform: "uppercase", margin: "0 0 12px" }}>
-            Make your prediction
-          </p>
-          <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-            <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 48, color: "#f1f1f5", letterSpacing: 2, margin: 0 }}>
-              {match.teamA}
-            </h1>
-            <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, color: "#333", letterSpacing: 2 }}>VS</span>
-            <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 48, color: "#f1f1f5", letterSpacing: 2, margin: 0 }}>
-              {match.teamB}
-            </h1>
-          </div>
-        </div>
-
-        {isLocked && (
-          <div className="locked-banner">
-            🔒 Predictions are closed — less than 10 minutes to kickoff
-          </div>
-        )}
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {[match.teamA, match.teamB, "Draw"].map((option) => (
-            <div
-              key={option}
-              className={`option-card${prediction === option ? " selected" : ""}${isLocked ? " locked" : ""}`}
-              onClick={() => !isLocked && setPrediction(option)}
-            >
-              <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: prediction === option ? "#f1f1f5" : "#888", letterSpacing: 1, transition: "color 0.2s" }}>
-                {option}
-              </span>
-              <div className="radio-dot">
-                <div className="radio-inner" />
-              </div>
+      <AnimatePresence mode="wait">
+        {submitted ? (
+          <motion.div
+            key="success"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="text-center py-12 md:py-20 px-6 md:px-8 rounded-[2rem] md:rounded-[3rem] bg-white border border-red-100 card-shadow"
+          >
+            <div className="w-16 h-16 md:w-20 md:h-20 bg-red-600 rounded-2xl md:rounded-3xl flex items-center justify-center mx-auto mb-6 md:mb-8 shadow-xl shadow-red-200">
+              <CheckCircle2 className="w-8 h-8 md:w-10 md:h-10 text-white" />
             </div>
-          ))}
-        </div>
+            <h2 className="text-4xl md:text-5xl font-black italic tracking-tighter text-red-700 font-bebas mb-3 md:mb-4">
+              PREDICTION <span className="text-red-600">LOCKED</span>
+            </h2>
+            <p className="text-xs md:text-sm text-red-400 font-bold uppercase tracking-widest mb-8 md:mb-12">
+              You chose <span className="text-red-600">{prediction}</span> to win!
+            </p>
+            <Link
+              href="/dashboard"
+              className="inline-block px-8 md:px-10 py-3.5 md:py-4 bg-red-600 text-white font-black uppercase tracking-widest rounded-xl md:rounded-2xl hover:bg-red-700 transition-all active:scale-95 text-sm shadow-xl shadow-red-200"
+            >
+              Return to Matches
+            </Link>
+          </motion.div>
+        ) : (
+          <motion.div key="form" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+            <header className="text-center mb-8 md:mb-12 space-y-3 md:space-y-4">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-50 text-red-600 text-[10px] md:text-xs font-black uppercase tracking-widest">
+                <Target className="w-3 h-3" />
+                Battle Prediction
+              </div>
+              <h1 className="text-4xl md:text-6xl font-black italic tracking-tighter text-red-700 font-bebas uppercase leading-none">
+                {match.teamA} <span className="text-red-600 italic">VS</span> {match.teamB}
+              </h1>
+              {isLocked && (
+                <div className="flex items-center justify-center gap-2 text-red-600 font-black uppercase tracking-widest text-[10px] md:text-xs">
+                  <AlertCircle className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                  Predictions Closed
+                </div>
+              )}
+            </header>
 
-        <button
-          onClick={handleSubmit}
-          disabled={!prediction || isLocked}
-          className="submit-btn"
-        >
-          {isLocked ? "Predictions Closed" : "Submit Prediction →"}
-        </button>
-      </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-6 mb-8 md:mb-12">
+              <PredictionOption 
+                team={match.teamA} 
+                active={prediction === match.teamA}
+                onClick={() => !isLocked && setPrediction(match.teamA)}
+                disabled={isLocked}
+                color="red"
+              />
+              <PredictionOption 
+                team="DRAW" 
+                active={prediction === "DRAW"}
+                onClick={() => !isLocked && setPrediction("DRAW")}
+                disabled={isLocked}
+                color="draw"
+              />
+              <PredictionOption 
+                team={match.teamB} 
+                active={prediction === match.teamB}
+                onClick={() => !isLocked && setPrediction(match.teamB)}
+                disabled={isLocked}
+                color="teamB"
+              />
+            </div>
+
+            <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-md border-t border-red-100 md:relative md:p-0 md:bg-transparent md:border-0">
+              {isAdmin ? (
+                <div className="w-full py-4 md:py-6 bg-red-50 text-red-600 font-black uppercase tracking-widest text-center rounded-xl md:rounded-3xl border-2 border-dashed border-red-200">
+                  Admins Cannot Participate
+                </div>
+              ) : (
+                <button
+                  onClick={handleSubmit}
+                  disabled={isLocked || !prediction || submitting}
+                  className={`w-full py-4 md:py-6 rounded-xl md:rounded-3xl font-black uppercase tracking-[0.15em] md:tracking-[0.2em] text-base md:text-lg transition-all shadow-2xl active:scale-[0.98] ${
+                    isLocked || !prediction || submitting
+                      ? "bg-red-50 text-red-200 cursor-not-allowed shadow-none border border-red-100"
+                      : "bg-red-600 text-white hover:bg-red-700 shadow-red-200"
+                  }`}
+                >
+                  {submitting ? "Locking in..." : isLocked ? "Battle Started" : "Lock Prediction"}
+                </button>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </main>
+  );
+}
+
+function PredictionOption({ team, active, onClick, disabled, color }: { team: string, active: boolean, onClick: () => void, disabled: boolean, color: string }) {
+  const colorClasses = {
+    red: "hover:border-red-500 bg-red-50/30",
+    draw: "hover:border-red-400 bg-red-50/20",
+    teamB: "hover:border-red-500 bg-red-50/30"
+  }[color as 'red' | 'draw' | 'teamB'];
+
+  const activeClasses = {
+    red: "border-red-600 bg-red-600 text-white shadow-xl shadow-red-200",
+    draw: "border-red-800 bg-red-800 text-white shadow-xl shadow-red-200",
+    teamB: "border-red-600 bg-red-600 text-white shadow-xl shadow-red-200"
+  }[color as 'red' | 'draw' | 'teamB'];
+
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`p-6 md:p-10 rounded-2xl md:rounded-[2.5rem] border-2 transition-all flex flex-row md:flex-col items-center justify-center md:justify-center gap-4 ${
+        active 
+          ? activeClasses 
+          : `border-red-50 bg-white text-red-700 ${!disabled && colorClasses}`
+      } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} w-full`}
+    >
+      <div className={`w-10 h-10 md:w-16 md:h-16 rounded-lg md:rounded-2xl flex items-center justify-center shrink-0 ${active ? 'bg-white/20' : 'bg-red-50'}`}>
+        <img 
+          src={`https://api.dicebear.com/7.x/identicon/svg?seed=${team}&backgroundColor=${active ? 'ffffff' : 'fef2f2'}`} 
+          alt={team} 
+          className="w-6 h-6 md:w-10 md:h-10"
+        />
+      </div>
+      <span className="text-xl md:text-2xl font-black italic uppercase tracking-tighter font-bebas truncate">
+        {team}
+      </span>
+      {active && <CheckCircle2 className="w-5 h-5 md:w-6 md:h-6 animate-bounce md:mt-2 shrink-0" />}
+    </button>
   );
 }
