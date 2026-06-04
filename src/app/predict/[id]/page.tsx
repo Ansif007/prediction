@@ -1,7 +1,7 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
-import { doc, getDoc, addDoc, collection } from "firebase/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, db } from "../../../lib/firebase";
 
 export default function PredictPage({
@@ -13,29 +13,41 @@ export default function PredictPage({
   const [match, setMatch] = useState<any>(null);
   const [prediction, setPrediction] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
 
   useEffect(() => {
     const loadMatch = async () => {
       const docRef = doc(db, "matches", id);
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
-        setMatch(docSnap.data());
+        const data = docSnap.data();
+        setMatch(data);
+        const kickoff = new Date(data.kickoffTime);
+        const lockTime = new Date(kickoff.getTime() - 10 * 60 * 1000);
+        setIsLocked(new Date() >= lockTime);
       }
     };
     loadMatch();
   }, [id]);
 
   const handleSubmit = async () => {
+    if (isLocked) return alert("Predictions close 10 minutes before kickoff.");
     if (!prediction) return alert("Please select a prediction.");
     const user = auth.currentUser;
     if (!user) return alert("You must be logged in.");
-    await addDoc(collection(db, "predictions"), {
-      matchId: id,
-      uid: user.uid,
-      prediction,
-      createdAt: new Date().toISOString(),
-    });
-    setSubmitted(true);
+    try {
+      const predictionId = `${user.uid}_${id}`;
+      await setDoc(doc(db, "predictions", predictionId), {
+        matchId: id,
+        uid: user.uid,
+        prediction,
+        createdAt: new Date().toISOString(),
+      });
+      setSubmitted(true);
+    } catch (error) {
+      console.error(error);
+      alert("Failed to save prediction");
+    }
   };
 
   if (!match) {
@@ -101,6 +113,10 @@ export default function PredictPage({
           border-color: #f97316;
           background: #1a1208;
         }
+        .option-card.locked {
+          cursor: not-allowed;
+          opacity: 0.5;
+        }
         .option-card:nth-child(1) { animation-delay: 0.1s; }
         .option-card:nth-child(2) { animation-delay: 0.2s; }
         .option-card:nth-child(3) { animation-delay: 0.3s; }
@@ -121,9 +137,7 @@ export default function PredictPage({
           transition: border-color 0.2s;
           flex-shrink: 0;
         }
-        .option-card.selected .radio-dot {
-          border-color: #f97316;
-        }
+        .option-card.selected .radio-dot { border-color: #f97316; }
         .radio-inner {
           width: 10px;
           height: 10px;
@@ -132,9 +146,7 @@ export default function PredictPage({
           transform: scale(0);
           transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1);
         }
-        .option-card.selected .radio-inner {
-          transform: scale(1);
-        }
+        .option-card.selected .radio-inner { transform: scale(1); }
 
         .submit-btn {
           width: 100%;
@@ -150,7 +162,7 @@ export default function PredictPage({
           transition: background 0.2s, box-shadow 0.2s, transform 0.15s;
           margin-top: 24px;
         }
-        .submit-btn:hover {
+        .submit-btn:hover:not(:disabled) {
           background: #ea6b0a;
           box-shadow: 0 0 30px rgba(249,115,22,0.4);
           transform: translateY(-1px);
@@ -161,6 +173,19 @@ export default function PredictPage({
           cursor: not-allowed;
           box-shadow: none;
           transform: none;
+        }
+        .locked-banner {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          background: #1a0a0a;
+          border: 1px solid #7f1d1d;
+          border-radius: 10px;
+          padding: 12px 16px;
+          margin-bottom: 20px;
+          font-size: 13px;
+          color: #f87171;
+          font-weight: 500;
         }
       `}</style>
 
@@ -173,8 +198,7 @@ export default function PredictPage({
       </div>
 
       <div style={{ maxWidth: 540, margin: "0 auto", padding: "48px 24px" }}>
-        {/* Match title */}
-        <div style={{ marginBottom: 40, animation: "fadeUp 0.4s ease both" }}>
+        <div style={{ marginBottom: 40 }}>
           <p style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 11, letterSpacing: 4, color: "#f97316", textTransform: "uppercase", margin: "0 0 12px" }}>
             Make your prediction
           </p>
@@ -189,13 +213,18 @@ export default function PredictPage({
           </div>
         </div>
 
-        {/* Options */}
+        {isLocked && (
+          <div className="locked-banner">
+            🔒 Predictions are closed — less than 10 minutes to kickoff
+          </div>
+        )}
+
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {[match.teamA, match.teamB, "Draw"].map((option) => (
             <div
               key={option}
-              className={`option-card${prediction === option ? " selected" : ""}`}
-              onClick={() => setPrediction(option)}
+              className={`option-card${prediction === option ? " selected" : ""}${isLocked ? " locked" : ""}`}
+              onClick={() => !isLocked && setPrediction(option)}
             >
               <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: prediction === option ? "#f1f1f5" : "#888", letterSpacing: 1, transition: "color 0.2s" }}>
                 {option}
@@ -209,10 +238,10 @@ export default function PredictPage({
 
         <button
           onClick={handleSubmit}
-          disabled={!prediction}
+          disabled={!prediction || isLocked}
           className="submit-btn"
         >
-          Submit Prediction →
+          {isLocked ? "Predictions Closed" : "Submit Prediction →"}
         </button>
       </div>
     </main>
