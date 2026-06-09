@@ -21,23 +21,25 @@ import { motion, AnimatePresence } from "framer-motion";
 import { 
   ShieldAlert, Plus, Trash2, X, Edit2, Play, Pause, 
   BarChart3, AlertTriangle, Users, LayoutGrid, Settings, Activity, 
-  Download, Search, Trophy, Target
+  Download, Search, Trophy, Target, Bell
 } from "lucide-react";
 import Link from "next/link";
 import * as XLSX from 'xlsx';
-import { Match, UserData, Prediction } from "@/types";
+import { Match, UserData, Prediction, Notice } from "@/types";
 import { formatKickoff } from "@/lib/utils";
 
-type AdminTab = 'matches' | 'users' | 'predictions';
+type AdminTab = 'matches' | 'users' | 'predictions' | 'notices';
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<AdminTab>('matches');
   const [matches, setMatches] = useState<Match[]>([]);
   const [users, setUsers] = useState<UserData[]>([]);
   const [allPredictions, setAllPredictions] = useState<Prediction[]>([]);
+  const [notices, setNotices] = useState<Notice[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showNoticeForm, setShowNoticeForm] = useState(false);
   const [editingMatch, setEditingMatch] = useState<Match | null>(null);
   const [editingUser, setEditingUser] = useState<UserData | null>(null);
   const [confirmResult, setConfirmResult] = useState<{ matchId: string, result: string, goals: string } | null>(null);
@@ -56,6 +58,13 @@ export default function AdminPage() {
     kickoffTime: "",
   });
 
+  // Notice Form State
+  const [noticeForm, setNoticeForm] = useState({
+    title: "",
+    content: "",
+    type: "info" as Notice['type']
+  });
+
   const loadData = async () => {
     try {
       setLoading(true);
@@ -63,6 +72,13 @@ export default function AdminPage() {
       const matchesSnap = await getDocs(collection(db, "matches"));
       const predictionsSnap = await getDocs(collection(db, "predictions"));
       const usersSnap = await getDocs(collection(db, "users"));
+      const noticesSnap = await getDocs(collection(db, "notices"));
+
+      const noticesData = noticesSnap.docs.map(docItem => ({
+        id: docItem.id,
+        ...docItem.data()
+      })) as Notice[];
+      setNotices(noticesData.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
 
       const usersData = usersSnap.docs.map(docItem => ({
         id: docItem.id,
@@ -203,6 +219,33 @@ export default function AdminPage() {
     }
   };
 
+  const handleAddNotice = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!noticeForm.title || !noticeForm.content) return;
+
+    try {
+      await addDoc(collection(db, "notices"), {
+        ...noticeForm,
+        createdAt: new Date().toISOString()
+      });
+      setShowNoticeForm(false);
+      setNoticeForm({ title: "", content: "", type: "info" });
+      loadData();
+    } catch (error) {
+      console.error("Error adding notice:", error);
+    }
+  };
+
+  const handleDeleteNotice = async (id: string) => {
+    if (!confirm("Delete this notification?")) return;
+    try {
+      await deleteDoc(doc(db, "notices", id));
+      setNotices(prev => prev.filter(n => n.id !== id));
+    } catch (error) {
+      console.error("Error deleting notice:", error);
+    }
+  };
+
   const saveResult = async () => {
     if (!confirmResult) return;
     const { matchId, result, goals } = confirmResult;
@@ -268,51 +311,62 @@ export default function AdminPage() {
   const exportToExcel = () => {
     const wb = XLSX.utils.book_new();
     
-    // 1. Leaderboard Sheet (Results)
+    // 1. Leaderboard Sheet (Primary Rank File)
     const leaderboardData = users
       .filter(u => u.role === 'user')
       .sort((a, b) => b.totalPoints - a.totalPoints)
       .map((u, index) => ({
         Rank: index + 1,
         Name: u.name,
-        Employee_ID: u.employeeId || 'N/A',
-        Department: u.department || 'N/A',
-        Total_Points: u.totalPoints
+        Employee_Number: u.employeeId || 'N/A',
+        Group: u.department || 'N/A',
+        Total_Score: u.totalPoints,
+        Status: u.profileSetup ? 'Verified' : 'Pending Setup'
       }));
     const leaderboardWS = XLSX.utils.json_to_sheet(leaderboardData);
-    XLSX.utils.book_append_sheet(wb, leaderboardWS, "Final Standings");
+    
+    // Set column widths for better readability
+    leaderboardWS['!cols'] = [
+      { wch: 8 },  // Rank
+      { wch: 25 }, // Name
+      { wch: 20 }, // Employee_Number
+      { wch: 25 }, // Group
+      { wch: 15 }, // Total_Score
+      { wch: 15 }  // Status
+    ];
 
-    // 2. Match Outcomes Sheet
+    XLSX.utils.book_append_sheet(wb, leaderboardWS, "Official Rankings");
+
+    // 2. Department Rankings
+    const deptMap: Record<string, { totalPoints: number; userCount: number }> = {};
+    users.filter(u => u.role === 'user').forEach(u => {
+      const dept = u.department || "OTHER (SAFETY, SECURITY, HR)";
+      if (!deptMap[dept]) deptMap[dept] = { totalPoints: 0, userCount: 0 };
+      deptMap[dept].totalPoints += (u.totalPoints || 0);
+      deptMap[dept].userCount += 1;
+    });
+
+    const departmentData = Object.entries(deptMap).map(([name, stats]) => ({
+      Group_Name: name,
+      Total_Points: stats.totalPoints,
+      Participant_Count: stats.userCount,
+      Average_Points: stats.userCount > 0 ? Number((stats.totalPoints / stats.userCount).toFixed(2)) : 0
+    })).sort((a, b) => b.Total_Points - a.Total_Points);
+
+    const deptWS = XLSX.utils.json_to_sheet(departmentData);
+    XLSX.utils.book_append_sheet(wb, deptWS, "Group Standings");
+
+    // 3. Match History
     const outcomesWS = XLSX.utils.json_to_sheet(matches.map(m => ({
       Match: `${m.teamA} vs ${m.teamB}`,
-      Kickoff: m.kickoffTime instanceof Timestamp ? m.kickoffTime.toDate().toLocaleString() : new Date(m.kickoffTime as string).toLocaleString(),
-      Status: m.status,
-      Winner_Result: m.result || 'PENDING',
-      Goals_Result: m.totalGoalsResult || 'PENDING',
-      Total_Predictions: m.stats?.total || 0
+      Kickoff: formatKickoff(m.kickoffTime),
+      Winner: m.result || 'PENDING',
+      Goals: m.totalGoalsResult || 'PENDING',
+      Participation: m.stats?.total || 0
     })));
     XLSX.utils.book_append_sheet(wb, outcomesWS, "Match Results");
 
-    // 3. Detailed Predictions Sheet
-    const predsWS = XLSX.utils.json_to_sheet(allPredictions.map(p => {
-      const match = matches.find(m => m.id === p.matchId);
-      const isWinnerCorrect = match?.status === 'completed' && p.winnerPrediction === match.result;
-      const isGoalsCorrect = match?.status === 'completed' && p.goalsPrediction === match.totalGoalsResult;
-      
-      return {
-        Timestamp: new Date(p.createdAt).toLocaleString(),
-        Participant: p.userName,
-        Battle: match ? `${match.teamA} vs ${match.teamB}` : 'Unknown',
-        Predicted_Winner: p.winnerPrediction,
-        Predicted_Goals: p.goalsPrediction,
-        Winner_Points: isWinnerCorrect ? 2 : 0,
-        Goals_Points: isGoalsCorrect ? 1 : 0,
-        Total_Points_Earned: (isWinnerCorrect ? 2 : 0) + (isGoalsCorrect ? 1 : 0)
-      };
-    }));
-    XLSX.utils.book_append_sheet(wb, predsWS, "Detailed Predictions");
-
-    XLSX.writeFile(wb, `MRF_SRC_Contest_Results_${new Date().toISOString().split('T')[0]}.xlsx`);
+    XLSX.writeFile(wb, `MRF_SRC_Rankings_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
   if (loading) {
@@ -377,7 +431,8 @@ export default function AdminPage() {
           {[
             { id: 'matches', label: 'Battles', icon: LayoutGrid },
             { id: 'users', label: 'Participants', icon: Users },
-            { id: 'predictions', label: 'Predictions', icon: Target }
+            { id: 'predictions', label: 'Predictions', icon: Target },
+            { id: 'notices', label: 'Notice Board', icon: Bell }
           ].map((tab) => (
             <button
               key={tab.id}
@@ -413,6 +468,7 @@ export default function AdminPage() {
               {activeTab === 'matches' && <><Settings className="w-6 h-6" /> Match Deployment</>}
               {activeTab === 'users' && <><Users className="w-6 h-6" /> User Roster</>}
               {activeTab === 'predictions' && <><Target className="w-6 h-6" /> Prediction Feed</>}
+              {activeTab === 'notices' && <><Bell className="w-6 h-6" /> Notice Management</>}
             </h2>
             
             <div className="flex items-center gap-3">
@@ -435,6 +491,15 @@ export default function AdminPage() {
                 >
                   <Plus className="w-4 h-4" />
                   New Battle
+                </button>
+              )}
+              {activeTab === 'notices' && (
+                <button 
+                  onClick={() => setShowNoticeForm(true)}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-red-600 text-white font-black uppercase tracking-widest rounded-xl text-xs shadow-lg shadow-red-200 transition-all active:scale-95"
+                >
+                  <Plus className="w-4 h-4" />
+                  Post Notice
                 </button>
               )}
             </div>
@@ -674,6 +739,56 @@ export default function AdminPage() {
                 </tbody>
               </table>
             )}
+
+            {activeTab === 'notices' && (
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-red-50/50 text-[10px] font-black uppercase tracking-widest text-red-400">
+                    <th className="px-8 py-4">Date</th>
+                    <th className="px-8 py-4">Notice Title</th>
+                    <th className="px-8 py-4">Type</th>
+                    <th className="px-8 py-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-red-50">
+                  {notices.map((notice) => (
+                    <tr key={notice.id} className="hover:bg-red-50/20 transition-all group">
+                      <td className="px-8 py-6 text-[10px] font-bold text-red-300 uppercase tracking-widest">
+                        {new Date(notice.createdAt).toLocaleDateString()}
+                      </td>
+                      <td className="px-8 py-6">
+                        <div className="text-sm font-black italic uppercase tracking-tighter text-red-700 font-bebas">{notice.title}</div>
+                        <div className="text-[10px] text-red-300 line-clamp-1">{notice.content}</div>
+                      </td>
+                      <td className="px-8 py-6">
+                        <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border ${
+                          notice.type === 'alert' ? 'bg-red-50 text-red-600 border-red-100' :
+                          notice.type === 'update' ? 'bg-blue-50 text-blue-600 border-blue-100' :
+                          'bg-green-50 text-green-600 border-green-100'
+                        }`}>
+                          {notice.type}
+                        </span>
+                      </td>
+                      <td className="px-8 py-6 text-right">
+                        <button 
+                          onClick={() => handleDeleteNotice(notice.id)}
+                          className="p-2 bg-red-50 text-red-300 hover:text-red-600 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {notices.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="px-8 py-12 text-center text-red-300 font-bold uppercase tracking-widest text-xs">
+                        No notices posted yet
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       </div>
@@ -799,6 +914,80 @@ export default function AdminPage() {
                   className="w-full py-4 bg-red-600 text-white font-black uppercase tracking-widest rounded-xl mt-4 shadow-xl shadow-red-200"
                 >
                   Save Identity
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Post Notice Modal */}
+      <AnimatePresence>
+        {showNoticeForm && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center px-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowNoticeForm(false)}
+              className="absolute inset-0 bg-red-900/40 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-md bg-white rounded-[2.5rem] p-8 shadow-2xl border border-red-100"
+            >
+              <button 
+                onClick={() => setShowNoticeForm(false)}
+                className="absolute top-6 right-6 p-2 text-red-300 hover:text-red-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+              
+              <h2 className="text-3xl font-black italic tracking-tighter text-red-700 font-bebas mb-6 uppercase flex items-center gap-2">
+                <Bell className="w-8 h-8" />
+                Broadcast Notice
+              </h2>
+              
+              <form onSubmit={handleAddNotice} className="space-y-4">
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-red-300 mb-1 block pl-1">Title</label>
+                  <input 
+                    type="text" 
+                    placeholder="e.g. Points Updated"
+                    className="w-full px-5 py-3 rounded-xl bg-red-50 border border-red-100 focus:border-red-600 outline-none text-red-700 font-bold placeholder:text-red-200"
+                    value={noticeForm.title}
+                    onChange={(e) => setNoticeForm({...noticeForm, title: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-red-300 mb-1 block pl-1">Content</label>
+                  <textarea 
+                    rows={3}
+                    placeholder="Enter message details..."
+                    className="w-full px-5 py-3 rounded-xl bg-red-50 border border-red-100 focus:border-red-600 outline-none text-red-700 font-bold placeholder:text-red-200 resize-none"
+                    value={noticeForm.content}
+                    onChange={(e) => setNoticeForm({...noticeForm, content: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-red-300 mb-1 block pl-1">Type</label>
+                  <select 
+                    className="w-full px-5 py-3 rounded-xl bg-red-50 border border-red-100 focus:border-red-600 outline-none text-red-700 font-bold appearance-none transition-all"
+                    value={noticeForm.type}
+                    onChange={(e) => setNoticeForm({...noticeForm, type: e.target.value as Notice['type']})}
+                  >
+                    <option value="info">Information (Green)</option>
+                    <option value="update">Update (Blue)</option>
+                    <option value="alert">Alert (Red)</option>
+                  </select>
+                </div>
+                <button 
+                  type="submit"
+                  className="w-full py-4 bg-red-600 text-white font-black uppercase tracking-widest rounded-xl mt-4 shadow-xl shadow-red-200"
+                >
+                  Post to Home
                 </button>
               </form>
             </motion.div>

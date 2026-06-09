@@ -33,10 +33,15 @@ export default function PredictPage({
   const [user, setUser] = useState<any>(null);
   const [showSuccess, setShowAddSuccess] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
+    const unsubscribe = onAuthStateChanged(auth, async (u) => {
       setUser(u);
+      if (u) {
+        const userDoc = await getDoc(doc(db, "users", u.uid));
+        setIsAdmin(userDoc.exists() && userDoc.data().role === "admin");
+      }
     });
     return () => unsubscribe();
   }, []);
@@ -73,7 +78,7 @@ export default function PredictPage({
   }, [id, user]);
 
   const handleSubmit = async () => {
-    if (!user || !prediction || !goals || isLocked) return;
+    if (!user || !prediction || !goals || isLocked || isAdmin) return;
 
     setSubmitting(true);
     try {
@@ -155,6 +160,12 @@ export default function PredictPage({
                 Predictions Locked
               </div>
             )}
+
+            {isAdmin && (
+              <div className="px-4 py-2 bg-yellow-400 text-white text-[10px] font-black uppercase tracking-widest rounded-lg border border-yellow-500 shadow-sm">
+                Admin View Only
+              </div>
+            )}
           </div>
         </div>
 
@@ -215,7 +226,7 @@ export default function PredictPage({
           </section>
 
           {/* Submit Button */}
-          {!isLocked && (
+          {!isLocked && !isAdmin && (
             <div className="pt-4">
               <button
                 onClick={handleSubmit}

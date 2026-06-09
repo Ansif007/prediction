@@ -26,6 +26,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [userRank, setUserRank] = useState<number | string>("--");
   const [userPoints, setUserPoints] = useState<number>(0);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
@@ -40,8 +41,8 @@ export default function Dashboard() {
           const userDoc = await getDoc(doc(db, "users", user.uid));
           const userData = userDoc.data();
           if (userDoc.exists() && userData && userData.role === "admin") {
-            router.push("/admin");
-            return;
+            setIsAdmin(true);
+            // Don't redirect, let them see the arena
           }
         }
         
@@ -108,7 +109,14 @@ export default function Dashboard() {
           <h1 className="text-4xl md:text-5xl font-black italic tracking-tighter text-red-700 font-bebas">
             MATCH <span className="text-red-600 underline decoration-red-100 underline-offset-4 md:underline-offset-8">SCHEDULE</span>
           </h1>
-          <p className="text-sm md:text-base text-red-400 font-medium px-4 md:px-0">Select a battle to lock in your prediction.</p>
+          {isAdmin ? (
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-50 text-yellow-700 text-[10px] font-black uppercase tracking-widest mx-auto md:mx-0 border border-yellow-100">
+              <Star className="w-3 h-3 fill-yellow-700" />
+              Admin View Only
+            </div>
+          ) : (
+            <p className="text-sm md:text-base text-red-400 font-medium px-4 md:px-0">Select a battle to lock in your prediction.</p>
+          )}
         </div>
 
         <div className="flex flex-col sm:flex-row justify-center md:justify-end gap-3 md:gap-4">
@@ -141,104 +149,18 @@ export default function Dashboard() {
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: index * 0.1 }}
           >
-            <Link
-              href={`/predict/${match.id}`}
-              className="group block bg-white border border-red-50 rounded-[1.5rem] md:rounded-[2rem] p-4 md:p-8 card-shadow hover:border-red-400 transition-all active:scale-[0.98]"
-            >
-              <div className="flex flex-col lg:flex-row items-center gap-4 md:gap-8">
-                {/* Time & Status */}
-                <div className="flex lg:flex-col items-center lg:items-start justify-between w-full lg:w-auto gap-2 lg:min-w-[160px]">
-                  <div className="flex flex-col lg:items-start gap-2">
-                    <div className={`px-3 py-1 md:px-4 md:py-1.5 rounded-full text-[8px] md:text-[10px] font-black uppercase tracking-[0.15em] ${
-                      match.status === 'live' ? 'bg-red-600 text-white animate-pulse' : 
-                      match.status === 'completed' ? 'bg-green-600 text-white shadow-lg shadow-green-100' :
-                      'bg-red-50 text-red-400 border border-red-100'
-                    }`}>
-                      {match.status === 'completed' ? 'Final' : match.status}
-                    </div>
-                    
-                    {/* Lock Status */}
-                    {(() => {
-                      const kickoff = match.kickoffTime instanceof Timestamp ? match.kickoffTime.toDate() : new Date(match.kickoffTime as string);
-                      const isLocked = currentTime > new Date(kickoff.getTime() - 1 * 60000);
-                      if (isLocked && match.status === 'upcoming') {
-                        return (
-                          <div className="px-3 py-1 rounded-full bg-red-100 text-red-600 text-[8px] font-black uppercase tracking-widest border border-red-200">
-                            Locked
-                          </div>
-                        );
-                      }
-                      return null;
-                    })()}
-
-                    {match.status === 'completed' && match.totalGoalsResult && (
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-50 text-red-700 border border-red-100 text-[8px] font-black uppercase tracking-widest">
-                          <Trophy className="w-2.5 h-2.5" />
-                          Goals: {match.totalGoalsResult}
-                        </div>
-                        {match.result && (
-                          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-yellow-400 text-white shadow-md text-[8px] font-black uppercase tracking-widest">
-                            <Star className="w-2.5 h-2.5 fill-white" />
-                            Winner: {match.result}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm font-bold text-red-300">
-                    <Calendar className="w-3 h-3 md:w-4 md:h-4" />
-                    {formatKickoff(match.kickoffTime)}
-                  </div>
-                </div>
-
-                {/* Match UI */}
-                <div className="flex-1 flex items-center justify-between md:justify-center gap-2 md:gap-12 w-full pt-2 md:pt-0">
-                  {/* Team A */}
-                  <div className="flex-1 flex flex-col md:flex-row items-center justify-end gap-2 md:gap-4 text-center md:text-right">
-                    <div className="relative w-12 h-12 md:w-20 md:h-20 rounded-xl md:rounded-2xl bg-red-50 border border-red-100 flex items-center justify-center overflow-hidden group-hover:scale-110 transition-transform shadow-sm">
-                      <Image 
-                        src={getTeamFlag(match.teamA)} 
-                        alt={match.teamA} 
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
-                    <span className="text-lg md:text-4xl font-black italic uppercase tracking-tighter text-red-700 font-bebas line-clamp-1">
-                      {match.teamA}
-                    </span>
-                  </div>
-
-                  <div className="flex flex-col items-center">
-                    <div className="w-8 h-8 md:w-12 md:h-12 rounded-full bg-red-600 flex items-center justify-center text-white font-black italic text-sm md:text-xl shadow-lg shadow-red-200 shrink-0">
-                      VS
-                    </div>
-                  </div>
-
-                  {/* Team B */}
-                  <div className="flex-1 flex flex-col md:flex-row items-center justify-start gap-2 md:gap-4 text-center md:text-left">
-                    <div className="relative w-12 h-12 md:w-20 md:h-20 rounded-xl md:rounded-2xl bg-red-50 border border-red-100 flex items-center justify-center overflow-hidden group-hover:scale-110 transition-transform shadow-sm md:order-1 order-1">
-                      <Image 
-                        src={getTeamFlag(match.teamB)} 
-                        alt={match.teamB} 
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
-                    <span className="text-lg md:text-4xl font-black italic uppercase tracking-tighter text-red-700 font-bebas line-clamp-1 md:order-2 order-2">
-                      {match.teamB}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Action Icon (Desktop Only) */}
-                <div className="hidden lg:flex items-center justify-center pl-8">
-                  <div className="w-12 h-12 rounded-2xl bg-red-50 group-hover:bg-red-600 group-hover:text-white flex items-center justify-center text-red-300 transition-all border border-red-100">
-                    <ChevronRight className="w-6 h-6" />
-                  </div>
-                </div>
+            {match.status === 'completed' ? (
+              <div className="group block bg-white border border-red-50 rounded-[1.5rem] md:rounded-[2rem] p-4 md:p-8 card-shadow opacity-80 cursor-not-allowed">
+                <MatchCardContent match={match} currentTime={currentTime} />
               </div>
-            </Link>
+            ) : (
+              <Link
+                href={`/predict/${match.id}`}
+                className="group block bg-white border border-red-50 rounded-[1.5rem] md:rounded-[2rem] p-4 md:p-8 card-shadow hover:border-red-400 transition-all active:scale-[0.98]"
+              >
+                <MatchCardContent match={match} currentTime={currentTime} />
+              </Link>
+            )}
           </motion.div>
         ))}
 
@@ -253,5 +175,105 @@ export default function Dashboard() {
         )}
       </div>
     </main>
+  );
+}
+
+function MatchCardContent({ match, currentTime }: { match: Match, currentTime: Date }) {
+  return (
+    <div className="flex flex-col lg:flex-row items-center gap-4 md:gap-8">
+      {/* Time & Status */}
+      <div className="flex lg:flex-col items-center lg:items-start justify-between w-full lg:w-auto gap-2 lg:min-w-[160px]">
+        <div className="flex flex-col lg:items-start gap-2">
+          <div className={`px-3 py-1 md:px-4 md:py-1.5 rounded-full text-[8px] md:text-[10px] font-black uppercase tracking-[0.15em] ${
+            match.status === 'live' ? 'bg-red-600 text-white animate-pulse' : 
+            match.status === 'completed' ? 'bg-green-600 text-white shadow-lg shadow-green-100' :
+            'bg-red-50 text-red-400 border border-red-100'
+          }`}>
+            {match.status === 'completed' ? 'Final' : match.status}
+          </div>
+          
+          {/* Lock Status */}
+          {(() => {
+            const kickoff = match.kickoffTime instanceof Timestamp ? match.kickoffTime.toDate() : new Date(match.kickoffTime as string);
+            const isLocked = currentTime > new Date(kickoff.getTime() - 1 * 60000);
+            if (isLocked && match.status === 'upcoming') {
+              return (
+                <div className="px-3 py-1 rounded-full bg-red-100 text-red-600 text-[8px] font-black uppercase tracking-widest border border-red-200">
+                  Locked
+                </div>
+              );
+            }
+            return null;
+          })()}
+
+          {match.status === 'completed' && match.totalGoalsResult && (
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-50 text-red-700 border border-red-100 text-[8px] font-black uppercase tracking-widest">
+                <Trophy className="w-2.5 h-2.5" />
+                Goals: {match.totalGoalsResult}
+              </div>
+              {match.result && (
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-yellow-400 text-white shadow-md text-[8px] font-black uppercase tracking-widest">
+                  <Star className="w-2.5 h-2.5 fill-white" />
+                  Winner: {match.result}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm font-bold text-red-300">
+          <Calendar className="w-3 h-3 md:w-4 md:h-4" />
+          {formatKickoff(match.kickoffTime)}
+        </div>
+      </div>
+
+      {/* Match UI */}
+      <div className="flex-1 flex items-center justify-between md:justify-center gap-2 md:gap-12 w-full pt-2 md:pt-0">
+        {/* Team A */}
+        <div className="flex-1 flex flex-col md:flex-row items-center justify-end gap-2 md:gap-4 text-center md:text-right">
+          <div className="relative w-12 h-12 md:w-20 md:h-20 rounded-xl md:rounded-2xl bg-red-50 border border-red-100 flex items-center justify-center overflow-hidden group-hover:scale-110 transition-transform shadow-sm">
+            <Image 
+              src={getTeamFlag(match.teamA)} 
+              alt={match.teamA} 
+              fill
+              className="object-cover"
+            />
+          </div>
+          <span className="text-lg md:text-4xl font-black italic uppercase tracking-tighter text-red-700 font-bebas line-clamp-1">
+            {match.teamA}
+          </span>
+        </div>
+
+        <div className="flex flex-col items-center">
+          <div className="w-8 h-8 md:w-12 md:h-12 rounded-full bg-red-600 flex items-center justify-center text-white font-black italic text-sm md:text-xl shadow-lg shadow-red-200 shrink-0">
+            VS
+          </div>
+        </div>
+
+        {/* Team B */}
+        <div className="flex-1 flex flex-col md:flex-row items-center justify-start gap-2 md:gap-4 text-center md:text-left">
+          <div className="relative w-12 h-12 md:w-20 md:h-20 rounded-xl md:rounded-2xl bg-red-50 border border-red-100 flex items-center justify-center overflow-hidden group-hover:scale-110 transition-transform shadow-sm md:order-1 order-1">
+            <Image 
+              src={getTeamFlag(match.teamB)} 
+              alt={match.teamB} 
+              fill
+              className="object-cover"
+            />
+          </div>
+          <span className="text-lg md:text-4xl font-black italic uppercase tracking-tighter text-red-700 font-bebas line-clamp-1 md:order-2 order-2">
+            {match.teamB}
+          </span>
+        </div>
+      </div>
+
+      {/* Action Icon (Desktop Only) */}
+      {match.status !== 'completed' && (
+        <div className="hidden lg:flex items-center justify-center pl-8">
+          <div className="w-12 h-12 rounded-2xl bg-red-50 group-hover:bg-red-600 group-hover:text-white flex items-center justify-center text-red-300 transition-all border border-red-100">
+            <ChevronRight className="w-6 h-6" />
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

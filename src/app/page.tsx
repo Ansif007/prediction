@@ -2,20 +2,34 @@
 
 import { useState, useEffect } from "react";
 import { signInWithPopup, User, onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, collection, getDocs, query, limit } from "firebase/firestore";
 import { auth, googleProvider, db } from "@/lib/firebase";
 import { motion } from "framer-motion";
-import { Trophy, Users, ArrowRight, Zap, Target, Globe } from "lucide-react";
+import { Trophy, Users, ArrowRight, Zap, Target, Globe, Bell, Calendar } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useToast } from "@/components/Toast";
+import { Notice } from "@/types";
 
 export default function Home() {
   const { showToast } = useToast();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [notices, setNotices] = useState<Notice[]>([]);
 
   useEffect(() => {
+    const fetchNotices = async () => {
+      try {
+        const q = query(collection(db, "notices"), limit(3));
+        const snap = await getDocs(q);
+        const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Notice));
+        setNotices(data.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchNotices();
+
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u);
       setLoading(false);
@@ -128,6 +142,63 @@ export default function Home() {
           </motion.div>
         </div>
       </div>
+
+      {/* Notice Board Section */}
+      {notices.length > 0 && (
+        <div className="max-w-5xl mx-auto px-6 -mt-10 relative z-30">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white/80 backdrop-blur-xl border border-red-100 rounded-[2.5rem] p-6 md:p-8 shadow-2xl shadow-red-200/50"
+          >
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 bg-red-600 rounded-xl flex items-center justify-center shadow-lg shadow-red-200">
+                <Bell className="w-5 h-5 text-white animate-ring" />
+              </div>
+              <div>
+                <h3 className="text-xl font-black italic tracking-tighter text-red-700 font-bebas leading-none uppercase">Arena Announcements</h3>
+                <p className="text-[10px] font-bold text-red-300 uppercase tracking-widest">Latest updates from the club</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {notices.map((notice, idx) => (
+                <motion.div 
+                  key={notice.id}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: idx * 0.1 }}
+                  className={`p-5 rounded-3xl border-2 transition-all hover:scale-[1.02] ${
+                    notice.type === 'alert' ? 'bg-red-50/50 border-red-100' :
+                    notice.type === 'update' ? 'bg-blue-50/50 border-blue-100' :
+                    'bg-green-50/50 border-green-100'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
+                      notice.type === 'alert' ? 'bg-red-600 text-white' :
+                      notice.type === 'update' ? 'bg-blue-600 text-white' :
+                      'bg-green-600 text-white'
+                    }`}>
+                      {notice.type}
+                    </span>
+                    <div className="flex items-center gap-1 text-[8px] font-bold text-red-300 uppercase">
+                      <Calendar className="w-3 h-3" />
+                      {new Date(notice.createdAt).toLocaleDateString()}
+                    </div>
+                  </div>
+                  <h4 className="font-black italic text-red-700 uppercase tracking-tighter font-bebas text-lg leading-tight mb-2 line-clamp-1">
+                    {notice.title}
+                  </h4>
+                  <p className="text-xs font-bold text-red-400 leading-relaxed line-clamp-2">
+                    {notice.content}
+                  </p>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        </div>
+      )}
 
       {/* Stats/Features Section */}
       <div className="max-w-7xl mx-auto px-6 -mt-10 md:-mt-20 relative z-20 pb-16 md:pb-20">

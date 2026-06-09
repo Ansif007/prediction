@@ -46,3 +46,11 @@ export interface DeptData {
   userCount: number;
   averagePoints: number;
 }
+
+export interface Notice {
+  id: string;
+  title: string;
+  content: string;
+  createdAt: string;
+  type: 'info' | 'alert' | 'update';
+}

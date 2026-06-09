@@ -53,5 +53,11 @@ service cloud.firestore {
       
       allow delete: if isAdmin();
     }
+
+    // Notices
+    match /notices/{noticeId} {
+      allow read: if isSignedIn() || true; // Publicly readable for home page
+      allow write: if isAdmin();
+    }
   }
 }

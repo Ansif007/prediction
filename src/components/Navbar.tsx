@@ -40,12 +40,17 @@ export default function Navbar() {
     { name: "Home", href: "/", icon: Home },
   ];
 
-  if (user && !isAdmin) {
+  if (user) {
+    // Both Admins and Users can see Arena and Leaderboard
     navItems.push(
       { name: "Arena", href: "/dashboard", icon: LayoutDashboard },
-      { name: "Leaderboard", href: "/leaderboard", icon: Trophy },
-      { name: "Profile", href: "/profile", icon: UserIcon }
+      { name: "Leaderboard", href: "/leaderboard", icon: Trophy }
     );
+    
+    // Only Users see Profile
+    if (!isAdmin) {
+      navItems.push({ name: "Profile", href: "/profile", icon: UserIcon });
+    }
   }
 
   if (isAdmin) {
