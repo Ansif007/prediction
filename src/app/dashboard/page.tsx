@@ -8,6 +8,8 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { Calendar, ChevronRight, Trophy, Globe, Star } from "lucide-react";
 
+import { useRouter } from "next/navigation";
+
 interface Match {
   id: string;
   teamA: string;
@@ -48,6 +50,7 @@ function getTeamFlag(teamName: string) {
 }
 
 export default function Dashboard() {
+  const router = useRouter();
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const [userRank, setUserRank] = useState<number | string>("--");
@@ -56,6 +59,14 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchData = async (user: User | null) => {
       try {
+        if (user) {
+          const userDoc = await getDoc(doc(db, "users", user.uid));
+          if (userDoc.exists() && userDoc.data().role === "admin") {
+            router.push("/admin");
+            return;
+          }
+        }
+        
         // Fetch Matches
         const querySnapshot = await getDocs(collection(db, "matches"));
         const matchList: Match[] = querySnapshot.docs.map((doc) => ({
@@ -98,7 +109,7 @@ export default function Dashboard() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [router]);
 
   if (loading) {
     return (

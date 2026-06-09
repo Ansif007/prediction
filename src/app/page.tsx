@@ -174,14 +174,14 @@ export default function Home() {
               <div className="space-y-4">
                 <div className="aspect-[4/5] rounded-3xl overflow-hidden border border-red-50 shadow-lg group">
                   <img 
-                    src="https://images.unsplash.com/photo-1551958219-acbc608c6377?auto=format&fit=crop&q=80&w=600" 
-                    alt="World Cup Ball" 
+                    src="https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&q=80&w=600" 
+                    alt="World Cup Spirit" 
                     className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500 scale-110 hover:scale-100"
                   />
                 </div>
                 <div className="aspect-square rounded-3xl overflow-hidden border border-red-50 shadow-lg group">
                   <img 
-                    src="https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&q=80&w=600" 
+                    src="https://images.unsplash.com/photo-1551958219-acbc608c6377?auto=format&fit=crop&q=80&w=600" 
                     alt="Stadium Atmosphere" 
                     className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500 scale-110 hover:scale-100"
                   />
@@ -189,16 +189,16 @@ export default function Home() {
               </div>
               <div className="space-y-4 pt-8">
                 <div className="aspect-square rounded-3xl overflow-hidden border border-red-50 shadow-lg group">
-                  <img 
-                    src="https://images.unsplash.com/photo-1522778119026-d647f0596c20?auto=format&fit=crop&q=80&w=600" 
-                    alt="Victory Moment" 
+                  <img
+                    src="https://images.unsplash.com/photo-1522778119026-d647f0596c20?auto=format&fit=crop&q=80&w=600"
+                    alt="Victory Moment"
                     className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500 scale-110 hover:scale-100"
                   />
                 </div>
                 <div className="aspect-[4/5] rounded-3xl overflow-hidden border border-red-50 shadow-lg group">
-                  <img 
-                    src="https://images.unsplash.com/photo-1518091043644-c1d4457512c6?auto=format&fit=crop&q=80&w=600" 
-                    alt="Fan Passion" 
+                  <img
+                    src="https://images.unsplash.com/photo-1518091043644-c1d4457512c6?auto=format&fit=crop&q=80&w=600"
+                    alt="Fan Passion"
                     className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500 scale-110 hover:scale-100"
                   />
                 </div>

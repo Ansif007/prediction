@@ -265,16 +265,21 @@ export default function AdminPage() {
 
       for (const predictionDoc of predictionSnapshot.docs) {
         const pred = predictionDoc.data();
+        const user = users.find(u => u.uid === pred.uid);
+        
+        // Skip admins
+        if (user?.role === 'admin') continue;
+
         let pointsEarned = 0;
         
-        // Winner Prediction (3 Points)
+        // Winner Prediction (2 Points)
         if (pred.winnerPrediction === result) {
-          pointsEarned += 3;
+          pointsEarned += 2;
         }
         
-        // Goals Prediction (2 Points)
+        // Goals Prediction (1 Point)
         if (pred.goalsPrediction === goals) {
-          pointsEarned += 2;
+          pointsEarned += 1;
         }
 
         if (pointsEarned > 0) {
@@ -335,9 +340,9 @@ export default function AdminPage() {
         Battle: match ? `${match.teamA} vs ${match.teamB}` : 'Unknown',
         Predicted_Winner: p.winnerPrediction,
         Predicted_Goals: p.goalsPrediction,
-        Winner_Points: isWinnerCorrect ? 3 : 0,
-        Goals_Points: isGoalsCorrect ? 2 : 0,
-        Total_Points_Earned: (isWinnerCorrect ? 3 : 0) + (isGoalsCorrect ? 2 : 0)
+        Winner_Points: isWinnerCorrect ? 2 : 0,
+        Goals_Points: isGoalsCorrect ? 1 : 0,
+        Total_Points_Earned: (isWinnerCorrect ? 2 : 0) + (isGoalsCorrect ? 1 : 0)
       };
     }));
     XLSX.utils.book_append_sheet(wb, predsWS, "Detailed Predictions");

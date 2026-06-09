@@ -42,8 +42,8 @@ export default function Leaderboard() {
           .map((doc) => ({
             ...(doc.data() as UserData),
             id: doc.id,
-          }));
-          // Removed filter to show all users publicly as requested
+          }))
+          .filter(u => u.role !== "admin");
 
         // Calculate Individual Leaderboard
         const individualData = [...allUsers].sort((a, b) => (b.totalPoints || 0) - (a.totalPoints || 0));

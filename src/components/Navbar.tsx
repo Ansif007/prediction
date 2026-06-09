@@ -37,7 +37,7 @@ export default function Navbar() {
     { name: "Home", href: "/", icon: Home },
   ];
 
-  if (user) {
+  if (user && !isAdmin) {
     navItems.push(
       { name: "Arena", href: "/dashboard", icon: LayoutDashboard },
       { name: "Leaderboard", href: "/leaderboard", icon: Trophy },

@@ -5,14 +5,14 @@ import { auth, db } from "../../lib/firebase";
 import { collection, doc, getDoc, getDocs, updateDoc, query, where } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { motion } from "framer-motion";
-import { User as UserIcon, Save, ArrowLeft, BadgeCheck, Star, CheckCircle2, Target, Timer, XCircle, Factory } from "lucide-react";
+import { User as UserIcon, Save, ArrowLeft, BadgeCheck, Star, CheckCircle2, Target, Timer, XCircle } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 interface UserProfile {
   name: string;
   employeeId: string;
   department: string;
-  plant: string;
   email: string;
   totalPoints: number;
 }
@@ -25,6 +25,7 @@ interface MatchStats {
 }
 
 export default function ProfilePage() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -32,7 +33,6 @@ export default function ProfilePage() {
     name: "",
     employeeId: "",
     department: "",
-    plant: "",
     email: "",
     totalPoints: 0
   });
@@ -43,18 +43,18 @@ export default function ProfilePage() {
     missed: 0
   });
 
-  const departments = [
-    "TUBE", "TYRE", "MIXING", "PCTR", "OTHER (SAFETY, SECURITY, HR)"
-  ];
-
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        // Fetch Profile
         const userRef = doc(db, "users", user.uid);
         const userSnap = await getDoc(userRef);
         if (userSnap.exists()) {
-          setProfile(userSnap.data() as UserProfile);
+          const data = userSnap.data();
+          if (data.role === "admin") {
+            router.push("/admin");
+            return;
+          }
+          setProfile(data as UserProfile);
         }
 
         // Fetch Stats
@@ -95,7 +95,7 @@ export default function ProfilePage() {
       setLoading(false);
     });
     return () => unsubscribe();
-  }, []);
+  }, [router]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -148,7 +148,7 @@ export default function ProfilePage() {
               Official Participant
             </div>
             <h1 className="text-4xl md:text-5xl font-black italic tracking-tighter text-red-700 font-bebas leading-none uppercase">
-              USER <span className="text-red-600">PROFILE</span>
+              {profile.name || "USER"} <span className="text-red-600">PROFILE</span>
             </h1>
             <p className="text-[10px] md:text-xs text-red-400 font-bold uppercase tracking-[0.2em]">
               Manage your arena identity
@@ -243,35 +243,13 @@ export default function ProfilePage() {
             </div>
 
             <div>
-              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-red-300 mb-2 block pl-1">Group</label>
-              <div className="relative group">
-                <select
-                  className="w-full px-6 py-4 rounded-2xl bg-red-50 border-2 border-transparent focus:border-red-600 outline-none text-red-700 font-bold appearance-none transition-all"
-                  value={profile.department}
-                  onChange={(e) => setProfile({...profile, department: e.target.value})}
-                >
-                  <option value="" disabled>Select Group</option>
-                  {departments.map(dept => (
-                    <option key={dept} value={dept}>{dept}</option>
-                  ))}
-                </select>
-                <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-red-300">
-                  <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-red-300 mb-2 block pl-1">Plant (Private & Locked)</label>
+              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-red-300 mb-2 block pl-1">Group (Locked)</label>
               <div className="relative">
-                <div className="absolute left-6 top-1/2 -translate-y-1/2 text-red-200">
-                  <Factory className="w-4 h-4" />
-                </div>
                 <input 
                   type="text" 
-                  value={profile.plant}
+                  value={profile.department}
                   disabled
-                  className="w-full pl-14 pr-6 py-4 rounded-2xl bg-red-50/50 border-2 border-red-50 text-red-200 font-bold cursor-not-allowed"
+                  className="w-full px-6 py-4 rounded-2xl bg-red-50/50 border-2 border-red-50 text-red-200 font-bold cursor-not-allowed"
                 />
               </div>
             </div>
@@ -296,7 +274,7 @@ export default function ProfilePage() {
                 : "bg-red-600 text-white hover:bg-red-700 shadow-red-200"
             }`}
           >
-            {saving ? "Updating..." : "Save Identity"}
+            {saving ? "Updating..." : "Update Name"}
             {!saving && <Save className="w-4 h-4" />}
           </button>
         </motion.form>
