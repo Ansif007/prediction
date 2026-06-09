@@ -8,8 +8,10 @@ import { motion } from "framer-motion";
 import { Trophy, Users, ArrowRight, Zap, Target, Globe } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import { useToast } from "@/components/Toast";
 
 export default function Home() {
+  const { showToast } = useToast();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -37,9 +39,11 @@ export default function Home() {
             createdAt: new Date().toISOString(),
           });
         }
+        showToast(`Welcome, ${loggedInUser.displayName?.split(' ')[0]}!`, "info");
       })
       .catch((error) => {
         console.error("Login Error:", (error as { code: string }).code);
+        showToast("Login Failed", "error");
       });
   };
 

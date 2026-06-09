@@ -26,6 +26,12 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [userRank, setUserRank] = useState<number | string>("--");
   const [userPoints, setUserPoints] = useState<number>(0);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 10000); // Update every 10s
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const fetchData = async (user: User | null) => {
@@ -145,15 +151,38 @@ export default function Dashboard() {
                   <div className="flex flex-col lg:items-start gap-2">
                     <div className={`px-3 py-1 md:px-4 md:py-1.5 rounded-full text-[8px] md:text-[10px] font-black uppercase tracking-[0.15em] ${
                       match.status === 'live' ? 'bg-red-600 text-white animate-pulse' : 
-                      match.status === 'completed' ? 'bg-red-50 text-red-600 border border-red-100' :
+                      match.status === 'completed' ? 'bg-green-600 text-white shadow-lg shadow-green-100' :
                       'bg-red-50 text-red-400 border border-red-100'
                     }`}>
-                      {match.status}
+                      {match.status === 'completed' ? 'Final' : match.status}
                     </div>
+                    
+                    {/* Lock Status */}
+                    {(() => {
+                      const kickoff = match.kickoffTime instanceof Timestamp ? match.kickoffTime.toDate() : new Date(match.kickoffTime as string);
+                      const isLocked = currentTime > new Date(kickoff.getTime() - 1 * 60000);
+                      if (isLocked && match.status === 'upcoming') {
+                        return (
+                          <div className="px-3 py-1 rounded-full bg-red-100 text-red-600 text-[8px] font-black uppercase tracking-widest border border-red-200">
+                            Locked
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+
                     {match.status === 'completed' && match.totalGoalsResult && (
-                      <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-50 text-red-700 border border-red-100 text-[8px] font-black uppercase tracking-widest">
-                        <Trophy className="w-2.5 h-2.5" />
-                        Goals: {match.totalGoalsResult}
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-50 text-red-700 border border-red-100 text-[8px] font-black uppercase tracking-widest">
+                          <Trophy className="w-2.5 h-2.5" />
+                          Goals: {match.totalGoalsResult}
+                        </div>
+                        {match.result && (
+                          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-yellow-400 text-white shadow-md text-[8px] font-black uppercase tracking-widest">
+                            <Star className="w-2.5 h-2.5 fill-white" />
+                            Winner: {match.result}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

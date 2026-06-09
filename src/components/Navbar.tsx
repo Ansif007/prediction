@@ -8,8 +8,10 @@ import { useEffect, useState } from "react";
 import { LayoutDashboard, Trophy, LogOut, User as UserIcon, Home, Globe, Menu, X, ShieldCheck } from "lucide-react";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { useToast } from "./Toast";
 
 export default function Navbar() {
+  const { showToast } = useToast();
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -30,6 +32,7 @@ export default function Navbar() {
 
   const handleLogout = async () => {
     await signOut(auth);
+    showToast("Signed out successfully", "info");
     setIsMenuOpen(false);
   };
 

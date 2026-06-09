@@ -16,6 +16,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Match } from "@/types";
 import { getTeamFlag } from "@/lib/utils";
+import { useToast } from "@/components/Toast";
 
 export default function PredictPage({
   params,
@@ -23,6 +24,7 @@ export default function PredictPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const { showToast } = useToast();
   const [match, setMatch] = useState<Match | null>(null);
   const [loading, setLoading] = useState(true);
   const [prediction, setPrediction] = useState<string | null>(null);
@@ -51,8 +53,8 @@ export default function PredictPage({
           ? data.kickoffTime.toDate() 
           : new Date(data.kickoffTime);
         
-        // Lock 10 mins before kickoff
-        const lockTime = new Date(kickoff.getTime() - 10 * 60000);
+        // Lock 1 minute before kickoff
+        const lockTime = new Date(kickoff.getTime() - 1 * 60000);
         setIsLocked(new Date() > lockTime);
 
         if (user) {
@@ -83,10 +85,12 @@ export default function PredictPage({
         createdAt: new Date().toISOString(),
         updatedAt: serverTimestamp(),
       });
+      showToast("Battle Prediction Locked!", "success");
       setShowAddSuccess(true);
       setTimeout(() => setShowAddSuccess(false), 3000);
     } catch (error) {
       console.error("Error saving prediction:", error);
+      showToast("Deployment Failed. Try again.", "error");
     } finally {
       setSubmitting(false);
     }

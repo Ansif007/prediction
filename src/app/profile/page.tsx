@@ -9,6 +9,7 @@ import { User as UserIcon, Save, ArrowLeft, BadgeCheck, Star, CheckCircle2, Targ
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { UserData, Match } from "@/types";
+import { useToast } from "@/components/Toast";
 
 interface MatchStats {
   completed: number;
@@ -19,6 +20,7 @@ interface MatchStats {
 
 export default function ProfilePage() {
   const router = useRouter();
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -55,7 +57,7 @@ export default function ProfilePage() {
 
           const newStats = {
             completed: 0,
-            predicted: 0,
+            predicted: predictedMatchIds.size, // Total number of predictions made
             pending: 0,
             missed: 0
           };
@@ -68,8 +70,7 @@ export default function ProfilePage() {
               if (isPredicted) newStats.completed++;
               else newStats.missed++;
             } else {
-              if (isPredicted) newStats.predicted++;
-              else newStats.pending++;
+              if (!isPredicted) newStats.pending++;
             }
           });
 
@@ -95,9 +96,11 @@ export default function ProfilePage() {
         name: profile.name.trim(),
         department: profile.department
       });
+      showToast("Identity Updated!", "success");
       setMessage({ type: 'success', text: 'Profile updated successfully!' });
     } catch (error) {
       console.error("Error updating profile:", error);
+      showToast("Update Failed", "error");
       setMessage({ type: 'error', text: 'Failed to update profile.' });
     } finally {
       setSaving(false);
@@ -169,15 +172,7 @@ export default function ProfilePage() {
           className="grid grid-cols-2 md:grid-cols-4 gap-4"
         >
           <StatCard 
-            label="Completed" 
-            value={stats.completed} 
-            icon={<CheckCircle2 className="w-4 h-4 text-green-600" />} 
-            bgColor="bg-green-50" 
-            borderColor="border-green-100"
-            textColor="text-green-700"
-          />
-          <StatCard 
-            label="Predicted" 
+            label="Total Preds" 
             value={stats.predicted} 
             icon={<Target className="w-4 h-4 text-blue-600" />} 
             bgColor="bg-blue-50" 
@@ -185,7 +180,15 @@ export default function ProfilePage() {
             textColor="text-blue-700"
           />
           <StatCard 
-            label="Pending" 
+            label="Scored" 
+            value={stats.completed} 
+            icon={<CheckCircle2 className="w-4 h-4 text-green-600" />} 
+            bgColor="bg-green-50" 
+            borderColor="border-green-100"
+            textColor="text-green-700"
+          />
+          <StatCard 
+            label="Upcoming" 
             value={stats.pending} 
             icon={<Timer className="w-4 h-4 text-yellow-600" />} 
             bgColor="bg-yellow-50" 
