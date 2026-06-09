@@ -17,7 +17,7 @@ import {
 import { onAuthStateChanged } from "firebase/auth";
 import { db, auth } from "../../lib/firebase";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle2, ShieldAlert, Globe, Plus, Trash2, Calendar, Trophy, X, Edit2, Play, Pause, BarChart3, AlertTriangle, Users, LayoutGrid, Settings, Activity } from "lucide-react";
+import { CheckCircle2, ShieldAlert, Globe, Plus, Trash2, Calendar, Trophy, X, Edit2, Play, Pause, BarChart3, AlertTriangle, Users, LayoutGrid, Settings, Activity, Star } from "lucide-react";
 import Link from "next/link";
 
 interface Match {
@@ -27,6 +27,7 @@ interface Match {
   kickoffTime: any;
   result?: string;
   status?: string;
+  playerOfTheMatch?: string;
   stats?: {
     teamA: number;
     draw: number;
@@ -41,7 +42,7 @@ export default function AdminPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingMatch, setEditingMatch] = useState<Match | null>(null);
-  const [confirmResult, setConfirmResult] = useState<{ matchId: string, result: string } | null>(null);
+  const [confirmResult, setConfirmResult] = useState<{ matchId: string, result: string, potm: string } | null>(null);
   const [globalStats, setGlobalStats] = useState({
     totalUsers: 0,
     totalPredictions: 0,
@@ -170,7 +171,7 @@ export default function AdminPage() {
 
   const saveResult = async () => {
     if (!confirmResult) return;
-    const { matchId, result } = confirmResult;
+    const { matchId, result, potm } = confirmResult;
     
     try {
       const match = matches.find((m) => m.id === matchId);
@@ -182,6 +183,7 @@ export default function AdminPage() {
       await updateDoc(doc(db, "matches", matchId), {
         result,
         status: "completed",
+        playerOfTheMatch: potm || "N/A"
       });
 
       const predictionsQuery = query(
@@ -344,16 +346,22 @@ export default function AdminPage() {
                     </td>
                     <td className="px-8 py-6">
                       {match.status === "completed" ? (
-                        <div className="flex items-center gap-2 text-red-600">
-                          <CheckCircle2 className="w-4 h-4" />
-                          <span className="text-[10px] font-black uppercase tracking-widest">Winner: {match.result}</span>
+                        <div className="flex flex-col gap-1 text-red-600">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 className="w-4 h-4" />
+                            <span className="text-[10px] font-black uppercase tracking-widest">Winner: {match.result}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Star className="w-3 h-3 text-red-400" />
+                            <span className="text-[9px] font-bold uppercase tracking-widest text-red-400">POTM: {match.playerOfTheMatch}</span>
+                          </div>
                         </div>
                       ) : (
                         <div className="flex gap-1.5">
                           {[match.teamA, "DRAW", match.teamB].map((res) => (
                             <button
                               key={res}
-                              onClick={() => setConfirmResult({ matchId: match.id, result: res as string })}
+                              onClick={() => setConfirmResult({ matchId: match.id, result: res as string, potm: "" })}
                               className="px-3 py-1.5 bg-red-50 text-red-700 border border-red-100 rounded-lg text-[10px] font-black uppercase tracking-tighter hover:bg-red-600 hover:text-white transition-all"
                             >
                               {res === "DRAW" ? "DRW" : res?.slice(0, 3)}
@@ -498,10 +506,21 @@ export default function AdminPage() {
                 <AlertTriangle className="w-8 h-8 text-red-600" />
               </div>
               <h2 className="text-2xl font-black italic tracking-tighter text-red-700 font-bebas mb-2 uppercase">Confirm Winner</h2>
-              <p className="text-sm text-red-400 font-bold uppercase tracking-wider mb-8">
-                Are you sure <span className="text-red-600">{confirmResult.result}</span> won? <br/>
-                <span className="text-[10px] text-red-300">Points will be awarded immediately.</span>
+              <p className="text-sm text-red-400 font-bold uppercase tracking-wider mb-4">
+                Are you sure <span className="text-red-600">{confirmResult.result}</span> won?
               </p>
+              
+              <div className="mb-8">
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-red-300 mb-1 block text-left pl-1">Player of the Match</label>
+                <input 
+                  type="text" 
+                  placeholder="Enter Player Name"
+                  className="w-full px-5 py-3 rounded-xl bg-red-50 border border-red-100 focus:border-red-600 outline-none text-red-700 font-bold placeholder:text-red-200"
+                  value={confirmResult.potm}
+                  onChange={(e) => setConfirmResult({...confirmResult, potm: e.target.value})}
+                />
+              </div>
+
               <div className="flex gap-3">
                 <button 
                   onClick={() => setConfirmResult(null)}

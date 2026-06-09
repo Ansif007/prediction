@@ -4,8 +4,18 @@ import { use, useEffect, useState } from "react";
 import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
 import { auth, db } from "../../../lib/firebase";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trophy, ArrowLeft, Target, Timer, CheckCircle2, AlertCircle } from "lucide-react";
+import { Trophy, ArrowLeft, Target, Timer, CheckCircle2, AlertCircle, Star } from "lucide-react";
 import Link from "next/link";
+
+interface Match {
+  id: string;
+  teamA: string;
+  teamB: string;
+  kickoffTime: any;
+  status: string;
+  result: string | null;
+  playerOfTheMatch?: string;
+}
 
 export default function PredictPage({
   params,
@@ -13,7 +23,7 @@ export default function PredictPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const [match, setMatch] = useState<any>(null);
+  const [match, setMatch] = useState<Match | null>(null);
   const [prediction, setPrediction] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
@@ -122,12 +132,22 @@ export default function PredictPage({
               <h1 className="text-4xl md:text-6xl font-black italic tracking-tighter text-red-700 font-bebas uppercase leading-none">
                 {match.teamA} <span className="text-red-600 italic">VS</span> {match.teamB}
               </h1>
-              {isLocked && (
-                <div className="flex items-center justify-center gap-2 text-red-600 font-black uppercase tracking-widest text-[10px] md:text-xs">
-                  <AlertCircle className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                  Predictions Closed
+              {/* Status Badge */}
+              <div className="flex flex-col items-center gap-2">
+                <div className={`px-5 py-2 rounded-full text-xs font-black uppercase tracking-widest border shadow-sm ${
+                  match.status === 'completed' ? 'bg-red-50 text-red-600 border-red-100' : 
+                  match.status === 'live' ? 'bg-red-600 text-white border-red-600 animate-pulse' :
+                  'bg-white text-red-300 border-red-50'
+                }`}>
+                  {match.status}
                 </div>
-              )}
+                {match.status === 'completed' && match.playerOfTheMatch && (
+                  <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-yellow-50 text-yellow-700 border border-yellow-100 text-[10px] font-black uppercase tracking-widest">
+                    <Star className="w-3.5 h-3.5 fill-yellow-500" />
+                    Player of the Match: {match.playerOfTheMatch}
+                  </div>
+                )}
+              </div>
             </header>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-6 mb-8 md:mb-12">

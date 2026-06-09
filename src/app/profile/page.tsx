@@ -5,7 +5,7 @@ import { auth, db } from "../../lib/firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { motion } from "framer-motion";
-import { User as UserIcon, Save, ArrowLeft, BadgeCheck, Star, Building2 } from "lucide-react";
+import { User as UserIcon, Save, ArrowLeft, BadgeCheck, Star, Building2, Factory } from "lucide-react";
 import Link from "next/link";
 
 export default function ProfilePage() {
@@ -17,12 +17,17 @@ export default function ProfilePage() {
     nickname: "",
     employeeId: "",
     department: "",
+    plant: "",
     email: "",
     totalPoints: 0
   });
 
   const departments = [
     "TUBE", "TYRE", "MIXING", "PCTR", "OTHER (SAFETY, SECURITY, HR)"
+  ];
+
+  const plants = [
+    "PLANT A", "PLANT B", "PLANT C", "HEAD OFFICE", "LOGISTICS CENTER"
   ];
 
   useEffect(() => {
@@ -50,7 +55,8 @@ export default function ProfilePage() {
       await updateDoc(userRef, {
         name: profile.name.trim(),
         nickname: profile.nickname.trim(),
-        department: profile.department
+        department: profile.department,
+        plant: profile.plant
       });
       setMessage({ type: 'success', text: 'Profile updated successfully!' });
     } catch (error) {
@@ -169,6 +175,25 @@ export default function ProfilePage() {
                   <option value="" disabled>Select Department</option>
                   {departments.map(dept => (
                     <option key={dept} value={dept}>{dept}</option>
+                  ))}
+                </select>
+                <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-red-300">
+                  <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-red-300 mb-2 block pl-1">Plant</label>
+              <div className="relative group">
+                <select
+                  className="w-full px-6 py-4 rounded-2xl bg-red-50 border-2 border-transparent focus:border-red-600 outline-none text-red-700 font-bold appearance-none transition-all"
+                  value={profile.plant}
+                  onChange={(e) => setProfile({...profile, plant: e.target.value})}
+                >
+                  <option value="" disabled>Select Plant</option>
+                  {plants.map(p => (
+                    <option key={p} value={p}>{p}</option>
                   ))}
                 </select>
                 <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-red-300">

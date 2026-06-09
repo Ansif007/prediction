@@ -35,10 +35,15 @@ export default function Navbar() {
 
   const navItems = [
     { name: "Home", href: "/", icon: Home },
-    { name: "Arena", href: "/dashboard", icon: LayoutDashboard },
-    { name: "Leaderboard", href: "/leaderboard", icon: Trophy },
-    { name: "Profile", href: "/profile", icon: UserIcon },
   ];
+
+  if (user) {
+    navItems.push(
+      { name: "Arena", href: "/dashboard", icon: LayoutDashboard },
+      { name: "Leaderboard", href: "/leaderboard", icon: Trophy },
+      { name: "Profile", href: "/profile", icon: UserIcon }
+    );
+  }
 
   if (isAdmin) {
     navItems.push({ name: "Admin", href: "/admin", icon: ShieldCheck });

@@ -6,7 +6,7 @@ import { auth, db } from "../../lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Calendar, ChevronRight, Timer, Trophy, Globe } from "lucide-react";
+import { Calendar, ChevronRight, Timer, Trophy, Globe, Star } from "lucide-react";
 
 interface Match {
   id: string;
@@ -15,6 +15,7 @@ interface Match {
   kickoffTime: any;
   status: string;
   result: string | null;
+  playerOfTheMatch?: string;
 }
 
 function formatKickoff(time: any) {
@@ -135,10 +136,20 @@ export default function Dashboard() {
               <div className="flex flex-col lg:flex-row items-center gap-4 md:gap-8">
                 {/* Time & Status */}
                 <div className="flex lg:flex-col items-center lg:items-start justify-between w-full lg:w-auto gap-2 lg:min-w-[160px]">
-                  <div className={`px-3 py-1 md:px-4 md:py-1.5 rounded-full text-[8px] md:text-[10px] font-black uppercase tracking-[0.15em] ${
-                    match.status === 'live' ? 'bg-red-600 text-white animate-pulse' : 'bg-red-50 text-red-400 border border-red-100'
-                  }`}>
-                    {match.status}
+                  <div className="flex flex-col lg:items-start gap-2">
+                    <div className={`px-3 py-1 md:px-4 md:py-1.5 rounded-full text-[8px] md:text-[10px] font-black uppercase tracking-[0.15em] ${
+                      match.status === 'live' ? 'bg-red-600 text-white animate-pulse' : 
+                      match.status === 'completed' ? 'bg-red-50 text-red-600 border border-red-100' :
+                      'bg-red-50 text-red-400 border border-red-100'
+                    }`}>
+                      {match.status}
+                    </div>
+                    {match.status === 'completed' && match.playerOfTheMatch && (
+                      <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-yellow-50 text-yellow-700 border border-yellow-100 text-[8px] font-black uppercase tracking-widest">
+                        <Star className="w-2.5 h-2.5 fill-yellow-500" />
+                        POTM: {match.playerOfTheMatch}
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm font-bold text-red-300">
                     <Calendar className="w-3 h-3 md:w-4 md:h-4" />

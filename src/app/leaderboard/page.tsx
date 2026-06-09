@@ -12,6 +12,7 @@ interface UserData {
   nickname?: string;
   employeeId?: string;
   department?: string;
+  plant?: string;
   totalPoints: number;
 }
 
@@ -231,6 +232,14 @@ export default function Leaderboard() {
                             </span>
                           </>
                         )}
+                        {user.plant && (
+                          <>
+                            <span className="text-red-100">•</span>
+                            <span className="text-[8px] md:text-[10px] font-black text-red-400 uppercase tracking-widest bg-red-50 px-1.5 py-0.5 rounded">
+                              {user.plant}
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -347,7 +356,7 @@ function PodiumCard({ user, rank, icon, height, isGold, delay, mobileOrder }: { 
             </span>
             {user.department && (
               <span className={`text-[8px] md:text-[10px] font-black uppercase tracking-[0.2em] ${isGold ? 'text-red-100/60' : 'text-red-300'}`}>
-                {user.department}
+                {user.department} {user.plant ? `| ${user.plant}` : ''}
               </span>
             )}
           </div>
