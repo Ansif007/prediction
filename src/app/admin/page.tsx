@@ -863,13 +863,16 @@ export default function AdminPage() {
               <div className="mb-8 space-y-4">
                 <div>
                   <label className="text-[10px] font-black uppercase tracking-[0.2em] text-red-300 mb-1 block text-left pl-1">Total Goals Scored</label>
-                  <input 
-                    type="text" 
-                    placeholder="e.g. 2-1 or 3"
-                    className="w-full px-5 py-3 rounded-xl bg-red-50 border border-red-100 focus:border-red-600 outline-none text-red-700 font-bold placeholder:text-red-200"
+                  <select 
+                    className="w-full px-5 py-3 rounded-xl bg-red-50 border border-red-100 focus:border-red-600 outline-none text-red-700 font-bold appearance-none transition-all"
                     value={confirmResult.goals}
                     onChange={(e) => setConfirmResult({...confirmResult, goals: e.target.value})}
-                  />
+                  >
+                    <option value="" disabled>Select Total Goals</option>
+                    {["0", "1", "2", "3", "4+"].map(opt => (
+                      <option key={opt} value={opt}>{opt} Goals</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
