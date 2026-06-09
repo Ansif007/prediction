@@ -2,27 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { collection, getDocs, query } from "firebase/firestore";
-import { db } from "../../lib/firebase";
+import { db } from "@/lib/firebase";
 import { motion } from "framer-motion";
 import { Trophy, Medal, Award, User as UserIcon, Star, TrendingUp, Users as UsersIcon, Building2 } from "lucide-react";
-
-interface UserData {
-  id: string;
-  name: string;
-  nickname?: string;
-  employeeId?: string;
-  department?: string;
-  plant?: string;
-  totalPoints: number;
-  role?: string;
-}
-
-interface DeptData {
-  name: string;
-  totalPoints: number;
-  userCount: number;
-  averagePoints: number;
-}
+import { UserData, DeptData } from "@/types";
 
 export default function Leaderboard() {
   const [users, setUsers] = useState<UserData[]>([]);

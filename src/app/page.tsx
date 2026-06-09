@@ -3,10 +3,11 @@
 import { useState, useEffect } from "react";
 import { signInWithPopup, User, onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
-import { auth, googleProvider, db } from "../lib/firebase";
+import { auth, googleProvider, db } from "@/lib/firebase";
 import { motion } from "framer-motion";
 import { Trophy, Users, ArrowRight, Zap, Target, Globe } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 
 export default function Home() {
   const [user, setUser] = useState<User | null>(null);
@@ -48,7 +49,14 @@ export default function Home() {
     <main className="relative min-h-[calc(100vh-60px)] md:min-h-[calc(100vh-80px)] overflow-hidden">
       {/* Hero Section with Image Background */}
       <div className="relative min-h-[90vh] md:h-[85vh] flex items-center justify-center text-white pt-10 pb-20 md:py-0">
-        <div className="absolute inset-0 bg-worldcup">
+        <div className="absolute inset-0 z-0">
+          <Image
+            src="https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&q=80&w=1200"
+            alt="World Cup Background"
+            fill
+            className="object-cover"
+            priority
+          />
           <div className="absolute inset-0 bg-gradient-to-b from-red-900/70 via-red-900/50 to-white" />
         </div>
 
@@ -102,7 +110,7 @@ export default function Home() {
                 onClick={login}
                 className="w-full sm:w-auto flex items-center justify-center gap-3 px-8 md:px-10 py-4 md:py-5 bg-white text-red-600 font-black uppercase tracking-widest rounded-2xl hover:bg-red-50 transition-all hover:scale-105 shadow-2xl shadow-red-100 active:scale-95 text-sm md:text-base"
               >
-                <img src="https://www.google.com/favicon.ico" alt="Google" className="w-4 h-4 md:w-5 md:h-5" />
+                <Image src="https://www.google.com/favicon.ico" alt="Google" width={20} height={20} className="md:w-5 md:h-5" />
                 Sign in with Google
               </button>
             )}
@@ -172,34 +180,38 @@ export default function Home() {
             
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-4">
-                <div className="aspect-[4/5] rounded-3xl overflow-hidden border border-red-50 shadow-lg group">
-                  <img 
+                <div className="relative aspect-[4/5] rounded-3xl overflow-hidden border border-red-50 shadow-lg group">
+                  <Image 
                     src="https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&q=80&w=600" 
                     alt="World Cup Spirit" 
-                    className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500 scale-110 hover:scale-100"
+                    fill
+                    className="object-cover grayscale hover:grayscale-0 transition-all duration-500 scale-110 hover:scale-100"
                   />
                 </div>
-                <div className="aspect-square rounded-3xl overflow-hidden border border-red-50 shadow-lg group">
-                  <img 
+                <div className="relative aspect-square rounded-3xl overflow-hidden border border-red-50 shadow-lg group">
+                  <Image 
                     src="https://images.unsplash.com/photo-1551958219-acbc608c6377?auto=format&fit=crop&q=80&w=600" 
                     alt="Stadium Atmosphere" 
-                    className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500 scale-110 hover:scale-100"
+                    fill
+                    className="object-cover grayscale hover:grayscale-0 transition-all duration-500 scale-110 hover:scale-100"
                   />
                 </div>
               </div>
               <div className="space-y-4 pt-8">
-                <div className="aspect-square rounded-3xl overflow-hidden border border-red-50 shadow-lg group">
-                  <img
+                <div className="relative aspect-square rounded-3xl overflow-hidden border border-red-50 shadow-lg group">
+                  <Image
                     src="https://images.unsplash.com/photo-1522778119026-d647f0596c20?auto=format&fit=crop&q=80&w=600"
                     alt="Victory Moment"
-                    className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500 scale-110 hover:scale-100"
+                    fill
+                    className="object-cover grayscale hover:grayscale-0 transition-all duration-500 scale-110 hover:scale-100"
                   />
                 </div>
-                <div className="aspect-[4/5] rounded-3xl overflow-hidden border border-red-50 shadow-lg group">
-                  <img
+                <div className="relative aspect-[4/5] rounded-3xl overflow-hidden border border-red-50 shadow-lg group">
+                  <Image
                     src="https://images.unsplash.com/photo-1518091043644-c1d4457512c6?auto=format&fit=crop&q=80&w=600"
                     alt="Fan Passion"
-                    className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500 scale-110 hover:scale-100"
+                    fill
+                    className="object-cover grayscale hover:grayscale-0 transition-all duration-500 scale-110 hover:scale-100"
                   />
                 </div>
               </div>

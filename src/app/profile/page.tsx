@@ -1,21 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { auth, db } from "../../lib/firebase";
+import { auth, db } from "@/lib/firebase";
 import { collection, doc, getDoc, getDocs, updateDoc, query, where } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { motion } from "framer-motion";
 import { User as UserIcon, Save, ArrowLeft, BadgeCheck, Star, CheckCircle2, Target, Timer, XCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-
-interface UserProfile {
-  name: string;
-  employeeId: string;
-  department: string;
-  email: string;
-  totalPoints: number;
-}
+import { UserData, Match } from "@/types";
 
 interface MatchStats {
   completed: number;
@@ -29,13 +22,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-  const [profile, setProfile] = useState<UserProfile>({
-    name: "",
-    employeeId: "",
-    department: "",
-    email: "",
-    totalPoints: 0
-  });
+  const [profile, setProfile] = useState<UserData | null>(null);
   const [stats, setStats] = useState<MatchStats>({
     completed: 0,
     predicted: 0,
@@ -49,12 +36,12 @@ export default function ProfilePage() {
         const userRef = doc(db, "users", user.uid);
         const userSnap = await getDoc(userRef);
         if (userSnap.exists()) {
-          const data = userSnap.data();
+          const data = userSnap.data() as UserData;
           if (data.role === "admin") {
             router.push("/admin");
             return;
           }
-          setProfile(data as UserProfile);
+          setProfile(data);
         }
 
         // Fetch Stats
@@ -62,7 +49,7 @@ export default function ProfilePage() {
           const matchesSnap = await getDocs(collection(db, "matches"));
           const predsSnap = await getDocs(query(collection(db, "predictions"), where("uid", "==", user.uid)));
           
-          const matches = matchesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+          const matches = matchesSnap.docs.map(d => ({ id: d.id, ...d.data() } as Match));
           const predictions = predsSnap.docs.map(d => d.data());
           const predictedMatchIds = new Set(predictions.map(p => p.matchId));
 
@@ -74,9 +61,8 @@ export default function ProfilePage() {
           };
 
           matches.forEach((match) => {
-            const matchData = match as { id: string, status?: string };
-            const isPredicted = predictedMatchIds.has(matchData.id);
-            const isCompleted = matchData.status === 'completed';
+            const isPredicted = predictedMatchIds.has(match.id);
+            const isCompleted = match.status === 'completed';
 
             if (isCompleted) {
               if (isPredicted) newStats.completed++;
@@ -99,7 +85,7 @@ export default function ProfilePage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!auth.currentUser) return;
+    if (!auth.currentUser || !profile) return;
 
     setSaving(true);
     setMessage(null);
@@ -125,6 +111,8 @@ export default function ProfilePage() {
       </div>
     );
   }
+
+  if (!profile) return null;
 
   return (
     <main className="max-w-2xl mx-auto px-6 py-8 md:py-12">

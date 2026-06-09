@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { auth } from "../lib/firebase";
+import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, signOut, User } from "firebase/auth";
 import { useEffect, useState } from "react";
 import { LayoutDashboard, Trophy, LogOut, User as UserIcon, Home, Globe, Menu, X, ShieldCheck } from "lucide-react";
 import { doc, getDoc } from "firebase/firestore";
-import { db } from "../lib/firebase";
+import { db } from "@/lib/firebase";
 
 export default function Navbar() {
   const [user, setUser] = useState<User | null>(null);

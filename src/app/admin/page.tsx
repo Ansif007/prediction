@@ -16,7 +16,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
-import { db, auth } from "../../lib/firebase";
+import { db, auth } from "@/lib/firebase";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   ShieldAlert, Plus, Trash2, X, Edit2, Play, Pause, 
@@ -25,45 +25,10 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import * as XLSX from 'xlsx';
+import { Match, UserData, Prediction } from "@/types";
+import { formatKickoff } from "@/lib/utils";
 
 type AdminTab = 'matches' | 'users' | 'predictions';
-
-interface Match {
-  id: string;
-  teamA: string;
-  teamB: string;
-  kickoffTime: Timestamp | Date | string;
-  result?: string;
-  totalGoalsResult?: string;
-  status?: string;
-  stats?: {
-    teamA: number;
-    draw: number;
-    teamB: number;
-    total: number;
-  };
-}
-
-interface UserData {
-  id: string;
-  uid: string;
-  name: string;
-  email: string;
-  role: string;
-  totalPoints: number;
-  department?: string;
-  employeeId?: string;
-}
-
-interface Prediction {
-  id: string;
-  matchId: string;
-  uid: string;
-  userName?: string;
-  winnerPrediction: string;
-  goalsPrediction: string;
-  createdAt: string;
-}
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<AdminTab>('matches');
@@ -99,30 +64,30 @@ export default function AdminPage() {
       const predictionsSnap = await getDocs(collection(db, "predictions"));
       const usersSnap = await getDocs(collection(db, "users"));
 
-      const usersData = usersSnap.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
+      const usersData = usersSnap.docs.map(docItem => ({
+        id: docItem.id,
+        ...docItem.data()
       })) as UserData[];
       setUsers(usersData);
 
-      const predsData = predictionsSnap.docs.map(doc => {
-        const data = doc.data();
+      const predsData = predictionsSnap.docs.map(docItem => {
+        const data = docItem.data() as Prediction;
         const user = usersData.find(u => u.uid === data.uid);
         return {
-          id: doc.id,
           ...data,
+          id: docItem.id,
           userName: user?.name || "Unknown"
         };
-      }) as Prediction[];
+      });
       setAllPredictions(predsData);
 
-      const matchesData = matchesSnap.docs.map((docItem) => {
-        const data = docItem.data();
+      const matchesData: Match[] = matchesSnap.docs.map((docItem) => {
+        const data = docItem.data() as Match;
         const preds = predsData.filter(p => p.matchId === docItem.id);
         
         return {
+          ...data,
           id: docItem.id,
-          ...(data as Omit<Match, "id">),
           stats: {
             teamA: preds.filter(p => p.winnerPrediction === data.teamA).length,
             draw: preds.filter(p => p.winnerPrediction === "DRAW").length,
@@ -264,7 +229,7 @@ export default function AdminPage() {
       const batch = writeBatch(db);
 
       for (const predictionDoc of predictionSnapshot.docs) {
-        const pred = predictionDoc.data();
+        const pred = predictionDoc.data() as Prediction;
         const user = users.find(u => u.uid === pred.uid);
         
         // Skip admins

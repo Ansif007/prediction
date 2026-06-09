@@ -2,52 +2,56 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
     
-    // Helper function to check if the user is an admin
     function isAdmin() {
-      return request.auth != null && 
+      return isSignedIn() && 
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // --- USERS COLLECTION ---
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // User profiles
     match /users/{userId} {
-      // Users can read other user profiles (for leaderboard)
-      allow read: if request.auth != null;
-      
-      // Users can only create their own profile initially
-      // Admins can update any user (e.g., awarding points)
-      allow create: if request.auth != null && request.auth.uid == userId;
-      allow update: if isAdmin();
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isAdmin() || (isOwner(userId) && 
+        // Prevent users from changing their own role or totalPoints
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'totalPoints', 'employeeId', 'department'])
+      );
       allow delete: if isAdmin();
     }
 
-    // --- MATCHES COLLECTION ---
+    // Matches
     match /matches/{matchId} {
-      // Everyone logged in can see matches
-      allow read: if request.auth != null;
-      
-      // Only admins can create/update/delete matches
+      allow read: if isSignedIn();
       allow write: if isAdmin();
     }
 
-    // --- PREDICTIONS COLLECTION ---
+    // Predictions
     match /predictions/{predictionId} {
-      // Users can only read their own predictions
-      // Admins can read all predictions to calculate points
-      allow read: if request.auth != null && (request.auth.uid == resource.data.uid || isAdmin());
-
-      // Create/Update Prediction Security
-      allow create, update: if request.auth != null 
-        && request.auth.uid == request.resource.data.uid
-        && !isAdmin() // Admins restricted from participating as per UI rules
-        && isBeforeCutoff(request.resource.data.matchId);
-    }
-
-    // Helper function to verify prediction is made 10+ mins before kickoff
-    function isBeforeCutoff(matchId) {
-      let kickoff = get(/databases/$(database)/documents/matches/$(matchId)).data.kickoffTime;
-      // kickoff is a Firestore Timestamp
-      return request.time < kickoff - duration.value(10, 'm');
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && 
+        request.resource.data.uid == request.auth.uid &&
+        // Verify match exists and is upcoming
+        get(/databases/$(database)/documents/matches/$(request.resource.data.matchId)).data.status == 'upcoming';
+      
+      allow update: if isAdmin() || (
+        isSignedIn() && 
+        resource.data.uid == request.auth.uid &&
+        // Only allow update if match is still upcoming
+        get(/databases/$(database)/documents/matches/$(resource.data.matchId)).data.status == 'upcoming' &&
+        // Prevent users from changing the uid or matchId
+        request.resource.data.uid == resource.data.uid &&
+        request.resource.data.matchId == resource.data.matchId
+      );
+      
+      allow delete: if isAdmin();
     }
   }
 }
