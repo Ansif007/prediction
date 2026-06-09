@@ -2,41 +2,92 @@
 
 import { useState, useEffect } from "react";
 import { auth, db } from "../../lib/firebase";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, updateDoc, query, where } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { motion } from "framer-motion";
-import { User as UserIcon, Save, ArrowLeft, BadgeCheck, Star, Building2, Factory } from "lucide-react";
+import { User as UserIcon, Save, ArrowLeft, BadgeCheck, Star, CheckCircle2, Target, Timer, XCircle } from "lucide-react";
 import Link from "next/link";
+
+interface UserProfile {
+  name: string;
+  employeeId: string;
+  department: string;
+  email: string;
+  totalPoints: number;
+}
+
+interface MatchStats {
+  completed: number;
+  predicted: number;
+  pending: number;
+  missed: number;
+}
 
 export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-  const [profile, setProfile] = useState({
+  const [profile, setProfile] = useState<UserProfile>({
     name: "",
-    nickname: "",
     employeeId: "",
     department: "",
-    plant: "",
     email: "",
     totalPoints: 0
+  });
+  const [stats, setStats] = useState<MatchStats>({
+    completed: 0,
+    predicted: 0,
+    pending: 0,
+    missed: 0
   });
 
   const departments = [
     "TUBE", "TYRE", "MIXING", "PCTR", "OTHER (SAFETY, SECURITY, HR)"
   ];
 
-  const plants = [
-    "PLANT A", "PLANT B", "PLANT C", "HEAD OFFICE", "LOGISTICS CENTER"
-  ];
-
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
+        // Fetch Profile
         const userRef = doc(db, "users", user.uid);
         const userSnap = await getDoc(userRef);
         if (userSnap.exists()) {
-          setProfile(userSnap.data() as any);
+          setProfile(userSnap.data() as UserProfile);
+        }
+
+        // Fetch Stats
+        try {
+          const matchesSnap = await getDocs(collection(db, "matches"));
+          const predsSnap = await getDocs(query(collection(db, "predictions"), where("uid", "==", user.uid)));
+          
+          const matches = matchesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+          const predictions = predsSnap.docs.map(d => d.data());
+          const predictedMatchIds = new Set(predictions.map(p => p.matchId));
+
+          const newStats = {
+            completed: 0,
+            predicted: 0,
+            pending: 0,
+            missed: 0
+          };
+
+          matches.forEach((match) => {
+            const matchData = match as { id: string, status?: string };
+            const isPredicted = predictedMatchIds.has(matchData.id);
+            const isCompleted = matchData.status === 'completed';
+
+            if (isCompleted) {
+              if (isPredicted) newStats.completed++;
+              else newStats.missed++;
+            } else {
+              if (isPredicted) newStats.predicted++;
+              else newStats.pending++;
+            }
+          });
+
+          setStats(newStats);
+        } catch (error) {
+          console.error("Error fetching stats:", error);
         }
       }
       setLoading(false);
@@ -54,9 +105,7 @@ export default function ProfilePage() {
       const userRef = doc(db, "users", auth.currentUser.uid);
       await updateDoc(userRef, {
         name: profile.name.trim(),
-        nickname: profile.nickname.trim(),
-        department: profile.department,
-        plant: profile.plant
+        department: profile.department
       });
       setMessage({ type: 'success', text: 'Profile updated successfully!' });
     } catch (error) {
@@ -122,12 +171,53 @@ export default function ProfilePage() {
           </div>
         </motion.div>
 
+        {/* Prediction Stats Dashboard */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="grid grid-cols-2 md:grid-cols-4 gap-4"
+        >
+          <StatCard 
+            label="Completed" 
+            value={stats.completed} 
+            icon={<CheckCircle2 className="w-4 h-4 text-green-600" />} 
+            bgColor="bg-green-50" 
+            borderColor="border-green-100"
+            textColor="text-green-700"
+          />
+          <StatCard 
+            label="Predicted" 
+            value={stats.predicted} 
+            icon={<Target className="w-4 h-4 text-blue-600" />} 
+            bgColor="bg-blue-50" 
+            borderColor="border-blue-100"
+            textColor="text-blue-700"
+          />
+          <StatCard 
+            label="Pending" 
+            value={stats.pending} 
+            icon={<Timer className="w-4 h-4 text-yellow-600" />} 
+            bgColor="bg-yellow-50" 
+            borderColor="border-yellow-100"
+            textColor="text-yellow-700"
+          />
+          <StatCard 
+            label="Missed" 
+            value={stats.missed} 
+            icon={<XCircle className="w-4 h-4 text-red-600" />} 
+            bgColor="bg-red-50" 
+            borderColor="border-red-100"
+            textColor="text-red-700"
+          />
+        </motion.div>
+
         {/* Edit Form */}
         <motion.form 
           onSubmit={handleSave}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
+          transition={{ delay: 0.2 }}
           className="bg-white p-8 md:p-10 rounded-[2.5rem] border border-red-50 card-shadow space-y-6"
         >
           {message && (
@@ -140,7 +230,7 @@ export default function ProfilePage() {
 
           <div className="space-y-4">
             <div>
-              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-red-300 mb-2 block pl-1">Full Name (Private)</label>
+              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-red-300 mb-2 block pl-1">Full Name</label>
               <input 
                 type="text" 
                 value={profile.name}
@@ -151,28 +241,14 @@ export default function ProfilePage() {
             </div>
 
             <div>
-              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-red-300 mb-2 block pl-1">Battle Nickname (Public)</label>
-              <input 
-                type="text" 
-                value={profile.nickname}
-                onChange={(e) => setProfile({...profile, nickname: e.target.value})}
-                className="w-full px-6 py-4 rounded-2xl bg-red-50 border-2 border-transparent focus:border-red-600 outline-none text-red-700 font-bold transition-all"
-                placeholder="How you appear on leaderboard"
-              />
-              <p className="text-[9px] text-red-300 mt-2 italic font-medium px-1">
-                This name will be visible to everyone in the Hall of Fame.
-              </p>
-            </div>
-
-            <div>
-              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-red-300 mb-2 block pl-1">Department</label>
+              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-red-300 mb-2 block pl-1">Group</label>
               <div className="relative group">
                 <select
                   className="w-full px-6 py-4 rounded-2xl bg-red-50 border-2 border-transparent focus:border-red-600 outline-none text-red-700 font-bold appearance-none transition-all"
                   value={profile.department}
                   onChange={(e) => setProfile({...profile, department: e.target.value})}
                 >
-                  <option value="" disabled>Select Department</option>
+                  <option value="" disabled>Select Group</option>
                   {departments.map(dept => (
                     <option key={dept} value={dept}>{dept}</option>
                   ))}
@@ -184,26 +260,7 @@ export default function ProfilePage() {
             </div>
 
             <div>
-              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-red-300 mb-2 block pl-1">Plant</label>
-              <div className="relative group">
-                <select
-                  className="w-full px-6 py-4 rounded-2xl bg-red-50 border-2 border-transparent focus:border-red-600 outline-none text-red-700 font-bold appearance-none transition-all"
-                  value={profile.plant}
-                  onChange={(e) => setProfile({...profile, plant: e.target.value})}
-                >
-                  <option value="" disabled>Select Plant</option>
-                  {plants.map(p => (
-                    <option key={p} value={p}>{p}</option>
-                  ))}
-                </select>
-                <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-red-300">
-                  <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-red-300 mb-2 block pl-1">Employee ID (Locked)</label>
+              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-red-300 mb-2 block pl-1">Employee Number (Private)</label>
               <input 
                 type="text" 
                 value={profile.employeeId}
@@ -228,5 +285,17 @@ export default function ProfilePage() {
         </motion.form>
       </div>
     </main>
+  );
+}
+
+function StatCard({ label, value, icon, bgColor, borderColor, textColor }: { label: string, value: number, icon: React.ReactNode, bgColor: string, borderColor: string, textColor: string }) {
+  return (
+    <div className={`${bgColor} ${borderColor} border p-4 rounded-3xl flex flex-col items-center justify-center text-center space-y-1`}>
+      <div className="w-8 h-8 bg-white rounded-xl flex items-center justify-center shadow-sm mb-1">
+        {icon}
+      </div>
+      <div className={`text-xl font-black font-bebas leading-none ${textColor}`}>{value}</div>
+      <div className="text-[8px] font-bold uppercase tracking-widest text-red-300">{label}</div>
+    </div>
   );
 }

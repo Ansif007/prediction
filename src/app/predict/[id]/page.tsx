@@ -4,17 +4,17 @@ import { use, useEffect, useState } from "react";
 import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
 import { auth, db } from "../../../lib/firebase";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trophy, ArrowLeft, Target, Timer, CheckCircle2, AlertCircle, Star } from "lucide-react";
+import { Trophy, ArrowLeft, Target, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 
 interface Match {
   id: string;
   teamA: string;
   teamB: string;
-  kickoffTime: any;
+  kickoffTime: Timestamp | Date | string;
   status: string;
   result: string | null;
-  playerOfTheMatch?: string;
+  totalGoalsResult?: string;
 }
 
 export default function PredictPage({
@@ -24,7 +24,8 @@ export default function PredictPage({
 }) {
   const { id } = use(params);
   const [match, setMatch] = useState<Match | null>(null);
-  const [prediction, setPrediction] = useState("");
+  const [winnerPrediction, setWinnerPrediction] = useState("");
+  const [goalsPrediction, setGoalsPrediction] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -36,7 +37,7 @@ export default function PredictPage({
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
         const data = docSnap.data();
-        setMatch(data);
+        setMatch({ id: docSnap.id, ...data } as Match);
         const kickoff = data.kickoffTime instanceof Timestamp 
           ? data.kickoffTime.toDate() 
           : new Date(data.kickoffTime);
@@ -45,21 +46,32 @@ export default function PredictPage({
       }
     };
 
-    const checkAdmin = async () => {
+    const checkStatus = async () => {
       const user = auth.currentUser;
       if (user) {
+        // Check Admin
         const userDoc = await getDoc(doc(db, "users", user.uid));
         setIsAdmin(userDoc.exists() && userDoc.data().role === "admin");
+
+        // Check Prediction
+        const predRef = doc(db, "predictions", `${user.uid}_${id}`);
+        const predSnap = await getDoc(predRef);
+        if (predSnap.exists()) {
+          const data = predSnap.data();
+          setWinnerPrediction(data.winnerPrediction || data.prediction);
+          setGoalsPrediction(data.goalsPrediction || "");
+          setSubmitted(true);
+        }
       }
     };
 
     loadMatch();
-    checkAdmin();
+    checkStatus();
   }, [id]);
 
   const handleSubmit = async () => {
-    if (isLocked) return;
-    if (!prediction) return;
+    if (isLocked || isAdmin) return;
+    if (!winnerPrediction || !goalsPrediction) return;
     const user = auth.currentUser;
     if (!user) return;
     
@@ -69,7 +81,9 @@ export default function PredictPage({
       await setDoc(doc(db, "predictions", predictionId), {
         matchId: id,
         uid: user.uid,
-        prediction,
+        winnerPrediction,
+        goalsPrediction,
+        prediction: winnerPrediction, // Compatibility
         createdAt: new Date().toISOString(),
       });
       setSubmitted(true);
@@ -113,7 +127,7 @@ export default function PredictPage({
               PREDICTION <span className="text-red-600">LOCKED</span>
             </h2>
             <p className="text-xs md:text-sm text-red-400 font-bold uppercase tracking-widest mb-8 md:mb-12">
-              You chose <span className="text-red-600">{prediction}</span> to win!
+              You chose <span className="text-red-600">{winnerPrediction}</span> & <span className="text-red-600">{goalsPrediction} Goals</span>
             </p>
             <Link
               href="/dashboard"
@@ -141,37 +155,63 @@ export default function PredictPage({
                 }`}>
                   {match.status}
                 </div>
-                {match.status === 'completed' && match.playerOfTheMatch && (
-                  <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-yellow-50 text-yellow-700 border border-yellow-100 text-[10px] font-black uppercase tracking-widest">
-                    <Star className="w-3.5 h-3.5 fill-yellow-500" />
-                    Player of the Match: {match.playerOfTheMatch}
+                {match.status === 'completed' && match.totalGoalsResult && (
+                  <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-50 text-red-700 border border-red-100 text-[10px] font-black uppercase tracking-widest">
+                    <Trophy className="w-3.5 h-3.5" />
+                    Total Goals: {match.totalGoalsResult}
                   </div>
                 )}
               </div>
             </header>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-6 mb-8 md:mb-12">
-              <PredictionOption 
-                team={match.teamA} 
-                active={prediction === match.teamA}
-                onClick={() => !isLocked && setPrediction(match.teamA)}
-                disabled={isLocked}
-                color="red"
-              />
-              <PredictionOption 
-                team="DRAW" 
-                active={prediction === "DRAW"}
-                onClick={() => !isLocked && setPrediction("DRAW")}
-                disabled={isLocked}
-                color="draw"
-              />
-              <PredictionOption 
-                team={match.teamB} 
-                active={prediction === match.teamB}
-                onClick={() => !isLocked && setPrediction(match.teamB)}
-                disabled={isLocked}
-                color="teamB"
-              />
+            <div className="grid gap-6 md:gap-8 mb-8 md:mb-12">
+              {/* Winner Prediction */}
+              <section className="bg-white p-6 md:p-8 rounded-[2rem] border border-red-50 card-shadow">
+                <h2 className="text-xl font-black italic tracking-tighter text-red-700 font-bebas mb-6 uppercase flex items-center gap-3">
+                  <Target className="w-5 h-5 text-red-600" />
+                  Who Wins? <span className="text-xs text-red-400 normal-case font-bold ml-auto">(3 Points)</span>
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {[match.teamA, "DRAW", match.teamB].map((option) => (
+                    <button
+                      key={option}
+                      disabled={isLocked || isAdmin}
+                      onClick={() => setWinnerPrediction(option)}
+                      className={`p-6 rounded-2xl font-black italic text-xl uppercase tracking-tighter font-bebas transition-all border-2 ${
+                        winnerPrediction === option
+                          ? "bg-red-600 text-white border-red-600 shadow-lg shadow-red-200"
+                          : "bg-red-50 text-red-700 border-transparent hover:border-red-200"
+                      } ${(isLocked || isAdmin) ? "cursor-not-allowed opacity-80" : "active:scale-95"}`}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              {/* Goals Prediction */}
+              <section className="bg-white p-6 md:p-8 rounded-[2rem] border border-red-50 card-shadow">
+                <h2 className="text-xl font-black italic tracking-tighter text-red-700 font-bebas mb-6 uppercase flex items-center gap-3">
+                  <Trophy className="w-5 h-5 text-red-600" />
+                  Total Goals? <span className="text-xs text-red-400 normal-case font-bold ml-auto">(2 Points)</span>
+                </h2>
+                <div className="grid grid-cols-3 md:grid-cols-5 gap-3">
+                  {["0", "1", "2", "3", "4+"].map((option) => (
+                    <button
+                      key={option}
+                      disabled={isLocked || isAdmin}
+                      onClick={() => setGoalsPrediction(option)}
+                      className={`py-4 rounded-xl font-black italic text-lg uppercase tracking-tighter font-bebas transition-all border-2 ${
+                        goalsPrediction === option
+                          ? "bg-red-600 text-white border-red-600 shadow-lg shadow-red-200"
+                          : "bg-red-50 text-red-700 border-transparent hover:border-red-200"
+                      } ${(isLocked || isAdmin) ? "cursor-not-allowed opacity-80" : "active:scale-95"}`}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
+              </section>
             </div>
 
             <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-md border-t border-red-100 md:relative md:p-0 md:bg-transparent md:border-0">
@@ -182,14 +222,14 @@ export default function PredictPage({
               ) : (
                 <button
                   onClick={handleSubmit}
-                  disabled={isLocked || !prediction || submitting}
+                  disabled={isLocked || !winnerPrediction || !goalsPrediction || submitting}
                   className={`w-full py-4 md:py-6 rounded-xl md:rounded-3xl font-black uppercase tracking-[0.15em] md:tracking-[0.2em] text-base md:text-lg transition-all shadow-2xl active:scale-[0.98] ${
-                    isLocked || !prediction || submitting
+                    isLocked || !winnerPrediction || !goalsPrediction || submitting
                       ? "bg-red-50 text-red-200 cursor-not-allowed shadow-none border border-red-100"
                       : "bg-red-600 text-white hover:bg-red-700 shadow-red-200"
                   }`}
                 >
-                  {submitting ? "Locking in..." : isLocked ? "Battle Started" : "Lock Prediction"}
+                  {submitting ? "Locking in..." : isLocked ? "Battle Started" : "Lock Predictions"}
                 </button>
               )}
             </div>
@@ -200,40 +240,3 @@ export default function PredictPage({
   );
 }
 
-function PredictionOption({ team, active, onClick, disabled, color }: { team: string, active: boolean, onClick: () => void, disabled: boolean, color: string }) {
-  const colorClasses = {
-    red: "hover:border-red-500 bg-red-50/30",
-    draw: "hover:border-red-400 bg-red-50/20",
-    teamB: "hover:border-red-500 bg-red-50/30"
-  }[color as 'red' | 'draw' | 'teamB'];
-
-  const activeClasses = {
-    red: "border-red-600 bg-red-600 text-white shadow-xl shadow-red-200",
-    draw: "border-red-800 bg-red-800 text-white shadow-xl shadow-red-200",
-    teamB: "border-red-600 bg-red-600 text-white shadow-xl shadow-red-200"
-  }[color as 'red' | 'draw' | 'teamB'];
-
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className={`p-6 md:p-10 rounded-2xl md:rounded-[2.5rem] border-2 transition-all flex flex-row md:flex-col items-center justify-center md:justify-center gap-4 ${
-        active 
-          ? activeClasses 
-          : `border-red-50 bg-white text-red-700 ${!disabled && colorClasses}`
-      } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} w-full`}
-    >
-      <div className={`w-10 h-10 md:w-16 md:h-16 rounded-lg md:rounded-2xl flex items-center justify-center shrink-0 ${active ? 'bg-white/20' : 'bg-red-50'}`}>
-        <img 
-          src={`https://api.dicebear.com/7.x/identicon/svg?seed=${team}&backgroundColor=${active ? 'ffffff' : 'fef2f2'}`} 
-          alt={team} 
-          className="w-6 h-6 md:w-10 md:h-10"
-        />
-      </div>
-      <span className="text-xl md:text-2xl font-black italic uppercase tracking-tighter font-bebas truncate">
-        {team}
-      </span>
-      {active && <CheckCircle2 className="w-5 h-5 md:w-6 md:h-6 animate-bounce md:mt-2 shrink-0" />}
-    </button>
-  );
-}

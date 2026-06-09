@@ -5,22 +5,17 @@ import { auth, db } from "../lib/firebase";
 import { doc, getDoc, updateDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { motion, AnimatePresence } from "framer-motion";
-import { ShieldCheck, User as UserIcon, Send, Star, Building2, Factory } from "lucide-react";
+import { ShieldCheck, User as UserIcon, Send, Building2 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 
 export default function SetupModal() {
   const [isOpen, setIsOpen] = useState(false);
   const [employeeId, setEmployeeId] = useState("");
-  const [nickname, setNickname] = useState("");
   const [department, setDepartment] = useState("");
-  const [plant, setPlant] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const departments = [
     "TUBE", "TYRE", "MIXING", "PCTR", "OTHER (SAFETY, SECURITY, HR)"
-  ];
-  const plants = [
-    "PLANT A", "PLANT B", "PLANT C", "HEAD OFFICE", "LOGISTICS CENTER"
   ];
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
@@ -37,7 +32,7 @@ export default function SetupModal() {
         if (userSnap.exists()) {
           const data = userSnap.data();
           // Show modal if profile is incomplete and user is not an admin
-          if ((!data.employeeId || !data.plant) && data.role !== "admin") {
+          if ((!data.employeeId || !data.department) && data.role !== "admin") {
             setIsOpen(true);
             // Block scrolling when modal is open
             document.body.style.overflow = "hidden";
@@ -61,7 +56,7 @@ export default function SetupModal() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanId = employeeId.trim();
-    if (!cleanId || !userId || !nickname.trim() || !department || !plant) return;
+    if (!cleanId || !userId || !department) return;
 
     setSubmitting(true);
     setError(null);
@@ -74,7 +69,7 @@ export default function SetupModal() {
         // Check if the duplicate ID belongs to the current user (shouldn't happen in setup)
         const duplicate = querySnapshot.docs.find(doc => doc.id !== userId);
         if (duplicate) {
-          setError("This Employee ID is already registered.");
+          setError("This Employee Number is already registered.");
           setSubmitting(false);
           return;
         }
@@ -83,9 +78,7 @@ export default function SetupModal() {
       const userRef = doc(db, "users", userId);
       await updateDoc(userRef, {
         employeeId: cleanId,
-        nickname: nickname.trim(),
         department: department,
-        plant: plant,
         profileSetup: true
       });
       setIsOpen(false);
@@ -144,24 +137,10 @@ export default function SetupModal() {
                   <input 
                     type="text" 
                     required
-                    placeholder="Enter Employee ID"
+                    placeholder="Enter Employee Number"
                     className="w-full pl-14 pr-6 py-4 md:py-5 rounded-2xl bg-red-50 border-2 border-transparent focus:border-red-600 focus:bg-white outline-none text-red-700 font-black placeholder:text-red-200 transition-all text-sm md:text-base"
                     value={employeeId}
                     onChange={(e) => setEmployeeId(e.target.value)}
-                  />
-                </div>
-
-                <div className="relative group">
-                  <div className="absolute left-5 top-1/2 -translate-y-1/2 text-red-200 group-focus-within:text-red-600 transition-colors">
-                    <Star className="w-5 h-5" />
-                  </div>
-                  <input 
-                    type="text" 
-                    required
-                    placeholder="Enter Battle Nickname"
-                    className="w-full pl-14 pr-6 py-4 md:py-5 rounded-2xl bg-red-50 border-2 border-transparent focus:border-red-600 focus:bg-white outline-none text-red-700 font-black placeholder:text-red-200 transition-all text-sm md:text-base"
-                    value={nickname}
-                    onChange={(e) => setNickname(e.target.value)}
                   />
                 </div>
 
@@ -175,29 +154,9 @@ export default function SetupModal() {
                     value={department}
                     onChange={(e) => setDepartment(e.target.value)}
                   >
-                    <option value="" disabled>Select Department</option>
+                    <option value="" disabled>Select Group</option>
                     {departments.map(dept => (
                       <option key={dept} value={dept}>{dept}</option>
-                    ))}
-                  </select>
-                  <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-red-300">
-                    <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
-                  </div>
-                </div>
-
-                <div className="relative group">
-                  <div className="absolute left-5 top-1/2 -translate-y-1/2 text-red-200 group-focus-within:text-red-600 transition-colors">
-                    <Factory className="w-5 h-5" />
-                  </div>
-                  <select
-                    required
-                    className="w-full pl-14 pr-6 py-4 md:py-5 rounded-2xl bg-red-50 border-2 border-transparent focus:border-red-600 focus:bg-white outline-none text-red-700 font-black appearance-none transition-all text-sm md:text-base"
-                    value={plant}
-                    onChange={(e) => setPlant(e.target.value)}
-                  >
-                    <option value="" disabled>Select Plant</option>
-                    {plants.map(p => (
-                      <option key={p} value={p}>{p}</option>
                     ))}
                   </select>
                   <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-red-300">
@@ -208,9 +167,9 @@ export default function SetupModal() {
 
               <button 
                 type="submit"
-                disabled={submitting || !employeeId.trim() || !nickname.trim() || !department || !plant}
+                disabled={submitting || !employeeId.trim() || !department}
                 className={`w-full flex items-center justify-center gap-3 py-4 md:py-5 rounded-2xl font-black uppercase tracking-[0.2em] transition-all active:scale-95 text-sm md:text-base shadow-xl ${
-                  submitting || !employeeId.trim() || !nickname.trim() || !department || !plant
+                  submitting || !employeeId.trim() || !department
                     ? "bg-red-50 text-red-200 shadow-none cursor-not-allowed"
                     : "bg-red-600 text-white hover:bg-red-700 shadow-red-200"
                 }`}

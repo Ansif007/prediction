@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, getDocs, query, orderBy, where } from "firebase/firestore";
+import { collection, getDocs, query } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 import { motion } from "framer-motion";
 import { Trophy, Medal, Award, User as UserIcon, Star, TrendingUp, Users as UsersIcon, Building2 } from "lucide-react";
@@ -14,6 +14,7 @@ interface UserData {
   department?: string;
   plant?: string;
   totalPoints: number;
+  role?: string;
 }
 
 interface DeptData {
@@ -39,13 +40,13 @@ export default function Leaderboard() {
         
         const allUsers = snapshot.docs
           .map((doc) => ({
+            ...(doc.data() as UserData),
             id: doc.id,
-            ...(doc.data() as any),
-          }))
-          .filter((u: any) => u.role === "user");
+          }));
+          // Removed filter to show all users publicly as requested
 
         // Calculate Individual Leaderboard
-        const individualData = [...allUsers].sort((a: any, b: any) => (b.totalPoints || 0) - (a.totalPoints || 0));
+        const individualData = [...allUsers].sort((a, b) => (b.totalPoints || 0) - (a.totalPoints || 0));
         setUsers(individualData);
 
         // Calculate Department Leaderboard
@@ -69,9 +70,10 @@ export default function Leaderboard() {
         setDepts(departmentData);
 
         setError(null);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Error loading leaderboard:", err);
-        if (err.message?.includes("index")) {
+        const error = err as { message?: string };
+        if (error.message?.includes("index")) {
           setError("Leaderboard is being prepared. Please check back in a few minutes.");
         } else {
           setError("Failed to load leaderboard. Please try again later.");
@@ -214,31 +216,14 @@ export default function Leaderboard() {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
                         <h3 className="font-black italic uppercase tracking-tighter text-red-700 font-bebas text-lg md:text-xl leading-none truncate">
-                          {user.nickname || "Legend"}
+                          {user.name}
                         </h3>
-                        <span className="text-[8px] md:text-[10px] font-black text-red-200 uppercase tracking-widest px-2 py-0.5 bg-red-50 rounded-md border border-red-100">
-                          {user.employeeId}
-                        </span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[9px] md:text-[11px] font-bold text-red-400 uppercase tracking-wider truncate max-w-[150px]">
-                          {user.name}
-                        </span>
                         {user.department && (
-                          <>
-                            <span className="text-red-100">•</span>
-                            <span className="text-[8px] md:text-[10px] font-black text-red-300 uppercase tracking-widest">
-                              {user.department}
-                            </span>
-                          </>
-                        )}
-                        {user.plant && (
-                          <>
-                            <span className="text-red-100">•</span>
-                            <span className="text-[8px] md:text-[10px] font-black text-red-400 uppercase tracking-widest bg-red-50 px-1.5 py-0.5 rounded">
-                              {user.plant}
-                            </span>
-                          </>
+                          <span className="text-[8px] md:text-[10px] font-black text-red-300 uppercase tracking-widest">
+                            {user.department}
+                          </span>
                         )}
                       </div>
                     </div>
@@ -349,14 +334,11 @@ function PodiumCard({ user, rank, icon, height, isGold, delay, mobileOrder }: { 
         <div className={`flex-1 md:w-full md:mt-0 ${isGold ? 'md:bg-red-600' : 'md:bg-white md:border md:border-red-50'} md:rounded-t-[3rem] md:p-8 text-left md:text-center md:shadow-2xl flex flex-col md:items-center justify-center gap-1 md:gap-2`}>
           <div className="flex flex-col md:items-center gap-0.5">
             <h3 className={`font-black italic uppercase tracking-tighter font-bebas text-lg md:text-2xl truncate w-full ${isGold ? 'text-white' : 'text-red-700'}`}>
-              {user.nickname || "Legend"}
-            </h3>
-            <span className={`text-[10px] md:text-xs font-bold uppercase tracking-widest ${isGold ? 'text-red-200' : 'text-red-400'}`}>
               {user.name}
-            </span>
+            </h3>
             {user.department && (
               <span className={`text-[8px] md:text-[10px] font-black uppercase tracking-[0.2em] ${isGold ? 'text-red-100/60' : 'text-red-300'}`}>
-                {user.department} {user.plant ? `| ${user.plant}` : ''}
+                {user.department}
               </span>
             )}
           </div>

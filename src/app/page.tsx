@@ -5,7 +5,7 @@ import { signInWithPopup, User, onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, googleProvider, db } from "../lib/firebase";
 import { motion } from "framer-motion";
-import { Trophy, Globe, Users, ArrowRight, Zap, Target } from "lucide-react";
+import { Trophy, Users, ArrowRight, Zap, Target } from "lucide-react";
 import Link from "next/link";
 
 export default function Home() {
@@ -37,8 +37,8 @@ export default function Home() {
           });
         }
       })
-      .catch((error: any) => {
-        console.error("Login Error:", error.code);
+      .catch((error) => {
+        console.error("Login Error:", (error as { code: string }).code);
       });
   };
 
@@ -68,9 +68,9 @@ export default function Home() {
             transition={{ delay: 0.2 }}
             className="text-5xl md:text-8xl font-black italic tracking-tighter leading-[0.9] md:leading-none font-bebas"
           >
-            THE ULTIMATE <br />
-            <span className="text-white underline decoration-red-600 decoration-4 md:decoration-8 underline-offset-4 md:underline-offset-8">WORLD CUP</span> <br />
-            CHALLENGE
+            MRF STAFF RECREATION <br />
+            <span className="text-white underline decoration-red-600 decoration-4 md:decoration-8 underline-offset-4 md:underline-offset-8">CLUB KOTTAYAM</span> <br />
+            PREDICTION CHALLENGE
           </motion.h1>
 
           <motion.p

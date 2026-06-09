@@ -3,24 +3,24 @@
 import { useEffect, useState } from "react";
 import { collection, getDocs, Timestamp, query, where } from "firebase/firestore";
 import { auth, db } from "../../lib/firebase";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged, User } from "firebase/auth";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Calendar, ChevronRight, Timer, Trophy, Globe, Star } from "lucide-react";
+import { Calendar, ChevronRight, Trophy, Globe, Star } from "lucide-react";
 
 interface Match {
   id: string;
   teamA: string;
   teamB: string;
-  kickoffTime: any;
+  kickoffTime: Timestamp | Date | string;
   status: string;
   result: string | null;
-  playerOfTheMatch?: string;
+  totalGoalsResult?: string;
 }
 
-function formatKickoff(time: any) {
+function formatKickoff(time: Timestamp | Date | string) {
   try {
-    const d = time instanceof Timestamp ? time.toDate() : new Date(time);
+    const d = time instanceof Timestamp ? time.toDate() : new Date(time as string | number | Date);
     return d.toLocaleString("en-US", {
       weekday: "short",
       month: "short",
@@ -40,7 +40,7 @@ export default function Dashboard() {
   const [userPoints, setUserPoints] = useState<number>(0);
 
   useEffect(() => {
-    const fetchData = async (user: any) => {
+    const fetchData = async (user: User | null) => {
       try {
         // Fetch Matches
         const querySnapshot = await getDocs(collection(db, "matches"));
@@ -48,11 +48,11 @@ export default function Dashboard() {
           id: doc.id,
           ...(doc.data() as Omit<Match, "id">),
         }));
-        // Sort matches by kickoff time
+        // Sort matches by kickoff time (latest first)
         matchList.sort((a, b) => {
-          const timeA = a.kickoffTime instanceof Timestamp ? a.kickoffTime.toDate().getTime() : new Date(a.kickoffTime).getTime();
-          const timeB = b.kickoffTime instanceof Timestamp ? b.kickoffTime.toDate().getTime() : new Date(b.kickoffTime).getTime();
-          return timeA - timeB;
+          const timeA = a.kickoffTime instanceof Timestamp ? a.kickoffTime.toDate().getTime() : new Date(a.kickoffTime as string | number | Date).getTime();
+          const timeB = b.kickoffTime instanceof Timestamp ? b.kickoffTime.toDate().getTime() : new Date(b.kickoffTime as string | number | Date).getTime();
+          return timeB - timeA;
         });
         setMatches(matchList);
 
@@ -61,7 +61,7 @@ export default function Dashboard() {
           const usersSnap = await getDocs(query(collection(db, "users"), where("role", "==", "user")));
           const allUsers = usersSnap.docs.map(doc => ({
             id: doc.id,
-            points: doc.data().totalPoints || 0
+            points: (doc.data().totalPoints as number) || 0
           })).sort((a, b) => b.points - a.points);
 
           const currentUserData = allUsers.find(u => u.id === user.uid);
@@ -108,7 +108,16 @@ export default function Dashboard() {
           <p className="text-sm md:text-base text-red-400 font-medium px-4 md:px-0">Select a battle to lock in your prediction.</p>
         </div>
 
-        <div className="flex justify-center md:justify-end gap-4">
+        <div className="flex flex-col sm:flex-row justify-center md:justify-end gap-3 md:gap-4">
+          <div className="p-3 md:p-4 bg-red-50 rounded-2xl border border-red-100 flex items-center gap-3 md:gap-4">
+            <div className="w-8 h-8 md:w-10 md:h-10 bg-white rounded-xl flex items-center justify-center shadow-sm">
+              <Star className="w-4 h-4 md:w-5 md:h-5 text-red-600" />
+            </div>
+            <div>
+              <div className="text-[8px] md:text-[10px] font-bold text-red-300 uppercase tracking-widest leading-none mb-1">Your Points</div>
+              <div className="text-lg md:text-xl font-black text-red-700 leading-none font-bebas">{userPoints} PTS</div>
+            </div>
+          </div>
           <div className="p-3 md:p-4 bg-red-50 rounded-2xl border border-red-100 flex items-center gap-3 md:gap-4">
             <div className="w-8 h-8 md:w-10 md:h-10 bg-white rounded-xl flex items-center justify-center shadow-sm">
               <Trophy className="w-4 h-4 md:w-5 md:h-5 text-yellow-600" />
@@ -144,10 +153,10 @@ export default function Dashboard() {
                     }`}>
                       {match.status}
                     </div>
-                    {match.status === 'completed' && match.playerOfTheMatch && (
-                      <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-yellow-50 text-yellow-700 border border-yellow-100 text-[8px] font-black uppercase tracking-widest">
-                        <Star className="w-2.5 h-2.5 fill-yellow-500" />
-                        POTM: {match.playerOfTheMatch}
+                    {match.status === 'completed' && match.totalGoalsResult && (
+                      <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-50 text-red-700 border border-red-100 text-[8px] font-black uppercase tracking-widest">
+                        <Trophy className="w-2.5 h-2.5" />
+                        Goals: {match.totalGoalsResult}
                       </div>
                     )}
                   </div>

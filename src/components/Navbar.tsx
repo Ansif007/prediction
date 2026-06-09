@@ -58,7 +58,7 @@ export default function Navbar() {
           </div>
           <div className="flex flex-col">
             <span className="text-base md:text-lg font-black tracking-tighter text-red-600 leading-none uppercase font-bebas">
-              WORLD CUP <span className="text-red-800">CONTEST</span>
+              MRF STAFF RECREATION <span className="text-red-800">CLUB KOTTAYAM</span>
             </span>
             <span className="text-[8px] md:text-[10px] font-bold text-red-400 uppercase tracking-widest leading-none">
               Internal Edition

@@ -13,21 +13,29 @@ import {
   deleteDoc,
   getDoc,
   Timestamp,
+  writeBatch,
 } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { db, auth } from "../../lib/firebase";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle2, ShieldAlert, Globe, Plus, Trash2, Calendar, Trophy, X, Edit2, Play, Pause, BarChart3, AlertTriangle, Users, LayoutGrid, Settings, Activity, Star } from "lucide-react";
+import { 
+  ShieldAlert, Plus, Trash2, X, Edit2, Play, Pause, 
+  BarChart3, AlertTriangle, Users, LayoutGrid, Settings, Activity, 
+  Download, Search, Trophy, Target
+} from "lucide-react";
 import Link from "next/link";
+import * as XLSX from 'xlsx';
+
+type AdminTab = 'matches' | 'users' | 'predictions';
 
 interface Match {
   id: string;
   teamA: string;
   teamB: string;
-  kickoffTime: any;
+  kickoffTime: Timestamp | Date | string;
   result?: string;
+  totalGoalsResult?: string;
   status?: string;
-  playerOfTheMatch?: string;
   stats?: {
     teamA: number;
     draw: number;
@@ -36,13 +44,40 @@ interface Match {
   };
 }
 
+interface UserData {
+  id: string;
+  uid: string;
+  name: string;
+  email: string;
+  role: string;
+  totalPoints: number;
+  department?: string;
+  employeeId?: string;
+}
+
+interface Prediction {
+  id: string;
+  matchId: string;
+  uid: string;
+  userName?: string;
+  winnerPrediction: string;
+  goalsPrediction: string;
+  createdAt: string;
+}
+
 export default function AdminPage() {
+  const [activeTab, setActiveTab] = useState<AdminTab>('matches');
   const [matches, setMatches] = useState<Match[]>([]);
+  const [users, setUsers] = useState<UserData[]>([]);
+  const [allPredictions, setAllPredictions] = useState<Prediction[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingMatch, setEditingMatch] = useState<Match | null>(null);
-  const [confirmResult, setConfirmResult] = useState<{ matchId: string, result: string, potm: string } | null>(null);
+  const [editingUser, setEditingUser] = useState<UserData | null>(null);
+  const [confirmResult, setConfirmResult] = useState<{ matchId: string, result: string, goals: string } | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  
   const [globalStats, setGlobalStats] = useState({
     totalUsers: 0,
     totalPredictions: 0,
@@ -56,13 +91,67 @@ export default function AdminPage() {
     kickoffTime: "",
   });
 
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      // Load Matches
+      const matchesSnap = await getDocs(collection(db, "matches"));
+      const predictionsSnap = await getDocs(collection(db, "predictions"));
+      const usersSnap = await getDocs(collection(db, "users"));
+
+      const usersData = usersSnap.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as UserData[];
+      setUsers(usersData);
+
+      const predsData = predictionsSnap.docs.map(doc => {
+        const data = doc.data();
+        const user = usersData.find(u => u.uid === data.uid);
+        return {
+          id: doc.id,
+          ...data,
+          userName: user?.name || "Unknown"
+        };
+      }) as Prediction[];
+      setAllPredictions(predsData);
+
+      const matchesData = matchesSnap.docs.map((docItem) => {
+        const data = docItem.data();
+        const preds = predsData.filter(p => p.matchId === docItem.id);
+        
+        return {
+          id: docItem.id,
+          ...(data as Omit<Match, "id">),
+          stats: {
+            teamA: preds.filter(p => p.winnerPrediction === data.teamA).length,
+            draw: preds.filter(p => p.winnerPrediction === "DRAW").length,
+            teamB: preds.filter(p => p.winnerPrediction === data.teamB).length,
+            total: preds.length
+          }
+        };
+      });
+      setMatches(matchesData);
+
+      setGlobalStats({
+        totalUsers: usersData.filter(u => u.role === 'user').length,
+        totalPredictions: predsData.length,
+        activeMatches: matchesData.filter(m => m.status === 'live').length
+      });
+    } catch (error) {
+      console.error("Error loading data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         const userDoc = await getDoc(doc(db, "users", user.uid));
         if (userDoc.exists() && userDoc.data().role === "admin") {
           setIsAdmin(true);
-          loadMatches();
+          loadData();
         } else {
           setIsAdmin(false);
           setLoading(false);
@@ -75,43 +164,6 @@ export default function AdminPage() {
     return () => unsubscribe();
   }, []);
 
-  const loadMatches = async () => {
-    try {
-      // Load Matches
-      const snapshot = await getDocs(collection(db, "matches"));
-      const matchesData = await Promise.all(snapshot.docs.map(async (docItem) => {
-        const data = docItem.data();
-        const predQuery = query(collection(db, "predictions"), where("matchId", "==", docItem.id));
-        const predSnap = await getDocs(predQuery);
-        const preds = predSnap.docs.map(d => d.data());
-        
-        return {
-          id: docItem.id,
-          ...(data as Omit<Match, "id">),
-          stats: {
-            teamA: preds.filter(p => p.prediction === data.teamA).length,
-            draw: preds.filter(p => p.prediction === "DRAW").length,
-            teamB: preds.filter(p => p.prediction === data.teamB).length,
-            total: preds.length
-          }
-        };
-      }));
-      setMatches(matchesData);
-
-      // Load Global Stats
-      const usersSnap = await getDocs(query(collection(db, "users"), where("role", "==", "user")));
-      const predsSnap = await getDocs(collection(db, "predictions"));
-      
-      setGlobalStats({
-        totalUsers: usersSnap.size,
-        totalPredictions: predsSnap.size,
-        activeMatches: matchesData.filter(m => m.status === 'live').length
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleAddMatch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!matchForm.teamA || !matchForm.teamB || !matchForm.kickoffTime) return;
@@ -122,10 +174,11 @@ export default function AdminPage() {
         kickoffTime: Timestamp.fromDate(new Date(matchForm.kickoffTime)),
         status: "upcoming",
         result: null,
+        totalGoalsResult: null,
       });
       setShowAddForm(false);
       setMatchForm({ teamA: "", teamB: "", kickoffTime: "" });
-      loadMatches();
+      loadData();
     } catch (error) {
       console.error("Error adding match:", error);
     }
@@ -144,9 +197,25 @@ export default function AdminPage() {
       });
       setEditingMatch(null);
       setMatchForm({ teamA: "", teamB: "", kickoffTime: "" });
-      loadMatches();
+      loadData();
     } catch (error) {
       console.error("Error updating match:", error);
+    }
+  };
+
+  const handleUpdateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+
+    try {
+      const userRef = doc(db, "users", editingUser.id);
+      await updateDoc(userRef, {
+        name: editingUser.name,
+      });
+      setEditingUser(null);
+      loadData();
+    } catch (error) {
+      console.error("Error updating user:", error);
     }
   };
 
@@ -171,7 +240,7 @@ export default function AdminPage() {
 
   const saveResult = async () => {
     if (!confirmResult) return;
-    const { matchId, result, potm } = confirmResult;
+    const { matchId, result, goals } = confirmResult;
     
     try {
       const match = matches.find((m) => m.id === matchId);
@@ -182,8 +251,8 @@ export default function AdminPage() {
 
       await updateDoc(doc(db, "matches", matchId), {
         result,
-        status: "completed",
-        playerOfTheMatch: potm || "N/A"
+        totalGoalsResult: goals,
+        status: "completed"
       });
 
       const predictionsQuery = query(
@@ -192,23 +261,80 @@ export default function AdminPage() {
       );
 
       const predictionSnapshot = await getDocs(predictionsQuery);
+      const batch = writeBatch(db);
 
       for (const predictionDoc of predictionSnapshot.docs) {
-        const predictionData = predictionDoc.data();
-        if (predictionData.prediction === result) {
-          await updateDoc(doc(db, "users", predictionData.uid), {
-            totalPoints: increment(3),
+        const pred = predictionDoc.data();
+        let pointsEarned = 0;
+        
+        // Winner Prediction (3 Points)
+        if (pred.winnerPrediction === result) {
+          pointsEarned += 3;
+        }
+        
+        // Goals Prediction (2 Points)
+        if (pred.goalsPrediction === goals) {
+          pointsEarned += 2;
+        }
+
+        if (pointsEarned > 0) {
+          const userRef = doc(db, "users", pred.uid);
+          batch.update(userRef, {
+            totalPoints: increment(pointsEarned)
           });
         }
       }
 
-      alert("Result saved and points awarded!");
-      setMatches(prev => prev.map(m => m.id === matchId ? { ...m, status: 'completed', result } : m));
+      await batch.commit();
+      alert(`Result saved! Points awarded to ${predictionSnapshot.size} predictors.`);
       setConfirmResult(null);
+      loadData();
     } catch (error) {
       console.error(error);
       alert("Failed to save result. Check console.");
     }
+  };
+
+  const exportToExcel = () => {
+    const wb = XLSX.utils.book_new();
+    
+    // Matches Sheet
+    const matchesWS = XLSX.utils.json_to_sheet(matches.map(m => ({
+      ID: m.id,
+      Match: `${m.teamA} vs ${m.teamB}`,
+      Kickoff: m.kickoffTime instanceof Timestamp ? m.kickoffTime.toDate() : new Date(m.kickoffTime as string),
+      Status: m.status,
+      Winner: m.result || 'N/A',
+      Goals: m.totalGoalsResult || 'N/A',
+      Total_Predictions: m.stats?.total || 0
+    })));
+    XLSX.utils.book_append_sheet(wb, matchesWS, "Matches");
+
+    // Users Sheet
+    const usersWS = XLSX.utils.json_to_sheet(users.map(u => ({
+      ID: u.uid,
+      Name: u.name,
+      Email: u.email,
+      Department: u.department || 'N/A',
+      Employee_ID: u.employeeId || 'N/A',
+      Total_Points: u.totalPoints
+    })));
+    XLSX.utils.book_append_sheet(wb, usersWS, "Users");
+
+    // Predictions Sheet
+    const predsWS = XLSX.utils.json_to_sheet(allPredictions.map(p => {
+      const match = matches.find(m => m.id === p.matchId);
+      return {
+        User: p.userName,
+        Match: match ? `${match.teamA} vs ${match.teamB}` : 'Unknown',
+        Winner_Prediction: p.winnerPrediction,
+        Goals_Prediction: p.goalsPrediction,
+        Date: new Date(p.createdAt)
+      };
+    }));
+    XLSX.utils.book_append_sheet(wb, predsWS, "Predictions");
+
+    XLSX.writeFile(wb, `MRF_Contest_Report_${new Date().toLocaleDateString()}.xlsx`);
   };
 
   if (loading) {
@@ -230,6 +356,16 @@ export default function AdminPage() {
     );
   }
 
+  const filteredUsers = users.filter(u => 
+    u.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    u.employeeId?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const filteredPredictions = allPredictions.filter(p => 
+    p.userName?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <main className="min-h-screen bg-[#fcfcfc]">
       {/* Top Admin Bar */}
@@ -245,19 +381,44 @@ export default function AdminPage() {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <Link href="/dashboard" className="text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 transition-all">Arena View</Link>
             <button 
-              onClick={() => setShowAddForm(true)}
-              className="flex items-center gap-2 px-5 py-2.5 bg-white text-red-700 font-black uppercase tracking-widest rounded-xl text-xs shadow-lg transition-all active:scale-95"
+              onClick={exportToExcel}
+              className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white font-black uppercase tracking-widest rounded-xl text-[10px] transition-all"
             >
-              <Plus className="w-4 h-4" />
-              New Battle
+              <Download className="w-3.5 h-3.5" />
+              Export Excel
             </button>
+            <Link href="/dashboard" className="text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 transition-all">Arena View</Link>
           </div>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 md:px-6 py-8">
+        {/* Navigation Tabs */}
+        <div className="flex items-center gap-2 mb-8 bg-red-50 p-1.5 rounded-2xl w-fit">
+          {[
+            { id: 'matches', label: 'Battles', icon: LayoutGrid },
+            { id: 'users', label: 'Participants', icon: Users },
+            { id: 'predictions', label: 'Predictions', icon: Target }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => {
+                setActiveTab(tab.id as AdminTab);
+                setSearchTerm("");
+              }}
+              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-black italic uppercase tracking-tighter font-bebas transition-all ${
+                activeTab === tab.id 
+                  ? 'bg-red-600 text-white shadow-lg shadow-red-200' 
+                  : 'text-red-300 hover:text-red-500 hover:bg-white'
+              }`}
+            >
+              <tab.icon className="w-4 h-4" />
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
         {/* Global Dashboard Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
           <StatBox icon={<Users className="w-5 h-5" />} label="Total Participants" value={globalStats.totalUsers} color="red" />
@@ -266,149 +427,275 @@ export default function AdminPage() {
           <StatBox icon={<LayoutGrid className="w-5 h-5" />} label="Total Battles" value={matches.length} color="red" />
         </div>
 
-        {/* Command Center Layout */}
-        <div className="bg-white rounded-[2rem] border border-red-50 shadow-xl overflow-hidden">
-          <div className="px-8 py-6 border-b border-red-50 flex items-center justify-between bg-red-50/30">
+        {/* Tab Content */}
+        <div className="bg-white rounded-[2.5rem] border border-red-50 shadow-xl overflow-hidden">
+          {/* Toolbar */}
+          <div className="px-8 py-6 border-b border-red-50 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-red-50/30">
             <h2 className="text-2xl font-black italic tracking-tighter text-red-700 font-bebas uppercase flex items-center gap-3">
-              <Settings className="w-6 h-6" />
-              Battle Deployment Center
+              {activeTab === 'matches' && <><Settings className="w-6 h-6" /> Match Deployment</>}
+              {activeTab === 'users' && <><Users className="w-6 h-6" /> User Roster</>}
+              {activeTab === 'predictions' && <><Target className="w-6 h-6" /> Prediction Feed</>}
             </h2>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-black text-red-300 uppercase tracking-widest">Sort by: Kickoff Time</span>
+            
+            <div className="flex items-center gap-3">
+              {(activeTab === 'users' || activeTab === 'predictions') && (
+                <div className="relative">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-red-200" />
+                  <input 
+                    type="text" 
+                    placeholder="Search..."
+                    className="pl-11 pr-6 py-2.5 rounded-xl bg-white border border-red-100 outline-none text-xs font-bold text-red-700 w-full md:w-64 focus:border-red-600 transition-all"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+              )}
+              {activeTab === 'matches' && (
+                <button 
+                  onClick={() => setShowAddForm(true)}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-red-600 text-white font-black uppercase tracking-widest rounded-xl text-xs shadow-lg shadow-red-200 transition-all active:scale-95"
+                >
+                  <Plus className="w-4 h-4" />
+                  New Battle
+                </button>
+              )}
             </div>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-red-50/50 text-[10px] font-black uppercase tracking-widest text-red-400">
-                  <th className="px-8 py-4">Status</th>
-                  <th className="px-8 py-4">Battle</th>
-                  <th className="px-8 py-4">Kickoff</th>
-                  <th className="px-8 py-4">Engagement</th>
-                  <th className="px-8 py-4">Result Management</th>
-                  <th className="px-8 py-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-red-50">
-                {matches.sort((a,b) => {
-                  const timeA = a.kickoffTime instanceof Timestamp ? a.kickoffTime.toDate().getTime() : new Date(a.kickoffTime).getTime();
-                  const timeB = b.kickoffTime instanceof Timestamp ? b.kickoffTime.toDate().getTime() : new Date(b.kickoffTime).getTime();
-                  return timeA - timeB;
-                }).map((match) => (
-                  <tr key={match.id} className="hover:bg-red-50/20 transition-all group">
-                    <td className="px-8 py-6">
-                      <div className={`inline-flex px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
-                        match.status === 'completed' ? 'bg-red-50 text-red-600 border-red-100' : 
-                        match.status === 'live' ? 'bg-red-600 text-white border-red-600 animate-pulse' :
-                        'bg-white text-red-300 border-red-50'
-                      }`}>
-                        {match.status}
-                      </div>
-                    </td>
-                    <td className="px-8 py-6">
-                      <div className="flex items-center gap-3">
+            {activeTab === 'matches' && (
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-red-50/50 text-[10px] font-black uppercase tracking-widest text-red-400">
+                    <th className="px-8 py-4">Status</th>
+                    <th className="px-8 py-4">Battle</th>
+                    <th className="px-8 py-4">Kickoff</th>
+                    <th className="px-8 py-4">Engagement</th>
+                    <th className="px-8 py-4">Final Result</th>
+                    <th className="px-8 py-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-red-50">
+                  {matches.sort((a,b) => {
+                    const timeA = a.kickoffTime instanceof Timestamp ? a.kickoffTime.toDate().getTime() : new Date(a.kickoffTime as string).getTime();
+                    const timeB = b.kickoffTime instanceof Timestamp ? b.kickoffTime.toDate().getTime() : new Date(b.kickoffTime as string).getTime();
+                    return timeA - timeB;
+                  }).map((match) => (
+                    <tr key={match.id} className="hover:bg-red-50/20 transition-all group">
+                      <td className="px-8 py-6">
+                        <div className={`inline-flex px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+                          match.status === 'completed' ? 'bg-red-50 text-red-600 border-red-100' : 
+                          match.status === 'live' ? 'bg-red-600 text-white border-red-600 animate-pulse' :
+                          'bg-white text-red-300 border-red-50'
+                        }`}>
+                          {match.status}
+                        </div>
+                      </td>
+                      <td className="px-8 py-6">
                         <span className="text-lg font-black italic uppercase tracking-tighter text-red-700 font-bebas">
                           {match.teamA} <span className="text-red-300 mx-1">vs</span> {match.teamB}
                         </span>
-                      </div>
-                    </td>
-                    <td className="px-8 py-6">
-                      <div className="flex flex-col">
-                        <span className="text-xs font-bold text-red-700">
-                          {match.kickoffTime instanceof Timestamp 
-                            ? match.kickoffTime.toDate().toLocaleDateString([], { month: 'short', day: 'numeric' }) 
-                            : new Date(match.kickoffTime).toLocaleDateString([], { month: 'short', day: 'numeric' })}
-                        </span>
-                        <span className="text-[10px] font-bold text-red-300">
-                          {match.kickoffTime instanceof Timestamp 
-                            ? match.kickoffTime.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
-                            : new Date(match.kickoffTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-8 py-6">
-                      <div className="flex flex-col gap-1.5 min-w-[120px]">
-                        <div className="flex justify-between text-[9px] font-bold text-red-300 uppercase tracking-widest">
-                          <span>{match.stats?.total || 0} Predictions</span>
-                          <span>{match.stats ? Math.round((match.stats.total / (globalStats.totalUsers || 1)) * 100) : 0}%</span>
+                      </td>
+                      <td className="px-8 py-6">
+                        <div className="flex flex-col">
+                          <span className="text-xs font-bold text-red-700">
+                            {match.kickoffTime instanceof Timestamp 
+                              ? match.kickoffTime.toDate().toLocaleDateString([], { month: 'short', day: 'numeric' }) 
+                              : new Date(match.kickoffTime as string).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                          </span>
+                          <span className="text-[10px] font-bold text-red-300">
+                            {match.kickoffTime instanceof Timestamp 
+                              ? match.kickoffTime.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
+                              : new Date(match.kickoffTime as string).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
                         </div>
-                        <div className="h-1.5 w-full bg-red-50 rounded-full overflow-hidden flex">
-                          {match.stats && match.stats.total > 0 && (
-                            <>
-                              <div style={{ width: `${(match.stats.teamA / match.stats.total) * 100}%` }} className="bg-red-600 h-full" />
-                              <div style={{ width: `${(match.stats.draw / match.stats.total) * 100}%` }} className="bg-red-400 h-full" />
-                              <div style={{ width: `${(match.stats.teamB / match.stats.total) * 100}%` }} className="bg-red-200 h-full" />
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-8 py-6">
-                      {match.status === "completed" ? (
-                        <div className="flex flex-col gap-1 text-red-600">
-                          <div className="flex items-center gap-2">
-                            <CheckCircle2 className="w-4 h-4" />
-                            <span className="text-[10px] font-black uppercase tracking-widest">Winner: {match.result}</span>
+                      </td>
+                      <td className="px-8 py-6">
+                        <div className="flex flex-col gap-1.5 min-w-[120px]">
+                          <div className="flex justify-between text-[9px] font-bold text-red-300 uppercase tracking-widest">
+                            <span>{match.stats?.total || 0} Predictions</span>
+                            <span>{match.stats ? Math.round((match.stats.total / (globalStats.totalUsers || 1)) * 100) : 0}%</span>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <Star className="w-3 h-3 text-red-400" />
-                            <span className="text-[9px] font-bold uppercase tracking-widest text-red-400">POTM: {match.playerOfTheMatch}</span>
+                          <div className="h-1.5 w-full bg-red-50 rounded-full overflow-hidden flex">
+                            {match.stats && match.stats.total > 0 && (
+                              <>
+                                <div style={{ width: `${(match.stats.teamA / match.stats.total) * 100}%` }} className="bg-red-600 h-full" />
+                                <div style={{ width: `${(match.stats.draw / match.stats.total) * 100}%` }} className="bg-red-400 h-full" />
+                                <div style={{ width: `${(match.stats.teamB / match.stats.total) * 100}%` }} className="bg-red-200 h-full" />
+                              </>
+                            )}
                           </div>
                         </div>
-                      ) : (
-                        <div className="flex gap-1.5">
-                          {[match.teamA, "DRAW", match.teamB].map((res) => (
-                            <button
-                              key={res}
-                              onClick={() => setConfirmResult({ matchId: match.id, result: res as string, potm: "" })}
-                              className="px-3 py-1.5 bg-red-50 text-red-700 border border-red-100 rounded-lg text-[10px] font-black uppercase tracking-tighter hover:bg-red-600 hover:text-white transition-all"
-                            >
-                              {res === "DRAW" ? "DRW" : res?.slice(0, 3)}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-8 py-6 text-right">
-                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        {match.status !== 'completed' && (
-                          <button 
-                            onClick={() => handleSetStatus(match.id, match.status === 'live' ? 'upcoming' : 'live')}
-                            className={`p-2 rounded-lg transition-all ${
-                              match.status === 'live' ? 'bg-red-50 text-red-600' : 'bg-red-600 text-white'
-                            }`}
-                          >
-                            {match.status === 'live' ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-                          </button>
+                      </td>
+                      <td className="px-8 py-6">
+                        {match.status === "completed" ? (
+                          <div className="flex flex-col gap-1 text-red-600">
+                            <div className="flex items-center gap-2">
+                              <Trophy className="w-3.5 h-3.5" />
+                              <span className="text-[10px] font-black uppercase tracking-widest">Winner: {match.result}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Target className="w-3.5 h-3.5 text-red-400" />
+                              <span className="text-[9px] font-bold uppercase tracking-widest text-red-400">Goals: {match.totalGoalsResult}</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex gap-1.5">
+                            {[match.teamA, "DRAW", match.teamB].map((res) => (
+                              <button
+                                key={res}
+                                onClick={() => setConfirmResult({ matchId: match.id, result: res as string, goals: "" })}
+                                className="px-3 py-1.5 bg-red-50 text-red-700 border border-red-100 rounded-lg text-[10px] font-black uppercase tracking-tighter hover:bg-red-600 hover:text-white transition-all"
+                              >
+                                {res === "DRAW" ? "DRW" : res?.slice(0, 3)}
+                              </button>
+                            ))}
+                          </div>
                         )}
+                      </td>
+                      <td className="px-8 py-6 text-right">
+                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {match.status !== 'completed' && (
+                            <button 
+                              onClick={() => handleSetStatus(match.id, match.status === 'live' ? 'upcoming' : 'live')}
+                              className={`p-2 rounded-lg transition-all ${
+                                match.status === 'live' ? 'bg-red-50 text-red-600' : 'bg-red-600 text-white'
+                              }`}
+                            >
+                              {match.status === 'live' ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                            </button>
+                          )}
+                          <button 
+                            onClick={() => {
+                              setEditingMatch(match);
+                              setMatchForm({
+                                teamA: match.teamA,
+                                teamB: match.teamB,
+                                kickoffTime: match.kickoffTime instanceof Timestamp 
+                                  ? match.kickoffTime.toDate().toISOString().slice(0, 16)
+                                  : new Date(match.kickoffTime as string).toISOString().slice(0, 16)
+                              });
+                            }}
+                            className="p-2 bg-red-50 text-red-600 rounded-lg"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteMatch(match.id)}
+                            className="p-2 bg-red-50 text-red-300 hover:text-red-600 rounded-lg"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+
+            {activeTab === 'users' && (
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-red-50/50 text-[10px] font-black uppercase tracking-widest text-red-400">
+                    <th className="px-8 py-4">Participant</th>
+                    <th className="px-8 py-4">Contact Info</th>
+                    <th className="px-8 py-4">Organization</th>
+                    <th className="px-8 py-4">Performance</th>
+                    <th className="px-8 py-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-red-50">
+                  {filteredUsers.map((user) => (
+                    <tr key={user.uid} className="hover:bg-red-50/20 transition-all group">
+                      <td className="px-8 py-6">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center border border-red-100">
+                            <Users className="w-5 h-5 text-red-400" />
+                          </div>
+                          <div>
+                            <div className="text-sm font-black italic uppercase tracking-tighter text-red-700 font-bebas">{user.name}</div>
+                            <div className="text-[10px] font-bold text-red-300 uppercase tracking-widest">{user.role}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-8 py-6">
+                        <div className="flex flex-col">
+                          <span className="text-xs font-bold text-red-700">{user.email}</span>
+                          <span className="text-[10px] font-bold text-red-300 uppercase tracking-widest">Emp ID: {user.employeeId || 'N/A'}</span>
+                        </div>
+                      </td>
+                      <td className="px-8 py-6">
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-0.5 bg-red-50 text-red-600 rounded border border-red-100 text-[10px] font-black uppercase tracking-widest">
+                            {user.department || 'GENERAL'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-8 py-6">
+                        <div className="flex items-center gap-2">
+                          <Trophy className="w-4 h-4 text-yellow-500" />
+                          <span className="text-lg font-black italic text-red-600 font-bebas">{user.totalPoints} PTS</span>
+                        </div>
+                      </td>
+                      <td className="px-8 py-6 text-right">
                         <button 
-                          onClick={() => {
-                            setEditingMatch(match);
-                            setMatchForm({
-                              teamA: match.teamA,
-                              teamB: match.teamB,
-                              kickoffTime: match.kickoffTime instanceof Timestamp 
-                                ? match.kickoffTime.toDate().toISOString().slice(0, 16)
-                                : new Date(match.kickoffTime).toISOString().slice(0, 16)
-                            });
-                          }}
-                          className="p-2 bg-red-50 text-red-600 rounded-lg"
+                          onClick={() => setEditingUser(user)}
+                          className="p-2 bg-red-50 text-red-600 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
-                        <button 
-                          onClick={() => handleDeleteMatch(match.id)}
-                          className="p-2 bg-red-50 text-red-300 hover:text-red-600 rounded-lg"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+
+            {activeTab === 'predictions' && (
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-red-50/50 text-[10px] font-black uppercase tracking-widest text-red-400">
+                    <th className="px-8 py-4">Time</th>
+                    <th className="px-8 py-4">Participant</th>
+                    <th className="px-8 py-4">Battle</th>
+                    <th className="px-8 py-4">Winner Pred.</th>
+                    <th className="px-8 py-4">Goals Pred.</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-red-50">
+                  {filteredPredictions.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map((pred) => {
+                    const match = matches.find(m => m.id === pred.matchId);
+                    return (
+                      <tr key={pred.id} className="hover:bg-red-50/20 transition-all">
+                        <td className="px-8 py-6 text-[10px] font-bold text-red-300 uppercase tracking-widest">
+                          {new Date(pred.createdAt).toLocaleDateString()} <br />
+                          {new Date(pred.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </td>
+                        <td className="px-8 py-6 font-black italic uppercase tracking-tighter text-red-700 font-bebas text-lg">
+                          {pred.userName}
+                        </td>
+                        <td className="px-8 py-6">
+                          <span className="text-xs font-bold text-red-400 uppercase tracking-widest">
+                            {match ? `${match.teamA} vs ${match.teamB}` : 'Unknown Battle'}
+                          </span>
+                        </td>
+                        <td className="px-8 py-6">
+                          <span className="px-3 py-1 bg-red-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest">
+                            {pred.winnerPrediction}
+                          </span>
+                        </td>
+                        <td className="px-8 py-6">
+                          <span className="px-3 py-1 bg-red-50 text-red-700 border border-red-100 rounded-lg text-[10px] font-black uppercase tracking-widest">
+                            {pred.goalsPrediction} Goals
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       </div>
@@ -491,6 +778,56 @@ export default function AdminPage() {
         )}
       </AnimatePresence>
 
+      {/* Edit User Modal */}
+      <AnimatePresence>
+        {editingUser && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center px-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setEditingUser(null)}
+              className="absolute inset-0 bg-red-900/40 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-md bg-white rounded-[2.5rem] p-8 shadow-2xl border border-red-100"
+            >
+              <button 
+                onClick={() => setEditingUser(null)}
+                className="absolute top-6 right-6 p-2 text-red-300 hover:text-red-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+              
+              <h2 className="text-3xl font-black italic tracking-tighter text-red-700 font-bebas mb-6 uppercase">
+                Edit Participant
+              </h2>
+              
+              <form onSubmit={handleUpdateUser} className="space-y-4">
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-red-300 mb-1 block pl-1">Full Name</label>
+                  <input 
+                    type="text" 
+                    className="w-full px-5 py-3 rounded-xl bg-red-50 border border-red-100 focus:border-red-600 outline-none text-red-700 font-bold"
+                    value={editingUser.name}
+                    onChange={(e) => setEditingUser({...editingUser, name: e.target.value})}
+                  />
+                </div>
+                <button 
+                  type="submit"
+                  className="w-full py-4 bg-red-600 text-white font-black uppercase tracking-widest rounded-xl mt-4 shadow-xl shadow-red-200"
+                >
+                  Save Identity
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Result Confirmation Modal */}
       <AnimatePresence>
         {confirmResult && (
@@ -505,20 +842,22 @@ export default function AdminPage() {
               <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-6">
                 <AlertTriangle className="w-8 h-8 text-red-600" />
               </div>
-              <h2 className="text-2xl font-black italic tracking-tighter text-red-700 font-bebas mb-2 uppercase">Confirm Winner</h2>
+              <h2 className="text-2xl font-black italic tracking-tighter text-red-700 font-bebas mb-2 uppercase">Battle Outcome</h2>
               <p className="text-sm text-red-400 font-bold uppercase tracking-wider mb-4">
-                Are you sure <span className="text-red-600">{confirmResult.result}</span> won?
+                Set final results for <span className="text-red-600">{confirmResult.result}</span>
               </p>
               
-              <div className="mb-8">
-                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-red-300 mb-1 block text-left pl-1">Player of the Match</label>
-                <input 
-                  type="text" 
-                  placeholder="Enter Player Name"
-                  className="w-full px-5 py-3 rounded-xl bg-red-50 border border-red-100 focus:border-red-600 outline-none text-red-700 font-bold placeholder:text-red-200"
-                  value={confirmResult.potm}
-                  onChange={(e) => setConfirmResult({...confirmResult, potm: e.target.value})}
-                />
+              <div className="mb-8 space-y-4">
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-red-300 mb-1 block text-left pl-1">Total Goals Scored</label>
+                  <input 
+                    type="text" 
+                    placeholder="e.g. 2-1 or 3"
+                    className="w-full px-5 py-3 rounded-xl bg-red-50 border border-red-100 focus:border-red-600 outline-none text-red-700 font-bold placeholder:text-red-200"
+                    value={confirmResult.goals}
+                    onChange={(e) => setConfirmResult({...confirmResult, goals: e.target.value})}
+                  />
+                </div>
               </div>
 
               <div className="flex gap-3">
@@ -530,7 +869,10 @@ export default function AdminPage() {
                 </button>
                 <button 
                   onClick={saveResult}
-                  className="flex-1 py-4 bg-red-600 text-white font-black uppercase tracking-widest rounded-xl shadow-lg shadow-red-200"
+                  disabled={!confirmResult.goals}
+                  className={`flex-1 py-4 font-black uppercase tracking-widest rounded-xl shadow-lg transition-all ${
+                    !confirmResult.goals ? 'bg-red-200 text-white cursor-not-allowed' : 'bg-red-600 text-white shadow-red-200'
+                  }`}
                 >
                   Confirm
                 </button>
