@@ -5,7 +5,7 @@ import { signInWithPopup, User, onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, googleProvider, db } from "../lib/firebase";
 import { motion } from "framer-motion";
-import { Trophy, Users, ArrowRight, Zap, Target } from "lucide-react";
+import { Trophy, Users, ArrowRight, Zap, Target, Globe } from "lucide-react";
 import Link from "next/link";
 
 export default function Home() {
@@ -139,8 +139,93 @@ export default function Home() {
             color="bg-red-50"
           />
         </div>
+
+        {/* FIFA World Cup History Section */}
+        <motion.div 
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="mt-20 md:mt-32 space-y-16"
+        >
+          <div className="grid md:grid-cols-2 gap-12 items-center">
+            <div className="space-y-6">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-50 text-red-600 text-[10px] font-black uppercase tracking-widest">
+                <Globe className="w-3 h-3" />
+                Legendary History
+              </div>
+              <h2 className="text-4xl md:text-6xl font-black italic tracking-tighter text-red-700 font-bebas leading-none uppercase">
+                THE GREATEST SHOW <br />
+                <span className="text-red-600 underline decoration-red-100 underline-offset-8">ON EARTH</span>
+              </h2>
+              <div className="space-y-4 text-red-400 font-medium leading-relaxed text-sm md:text-base">
+                <p>
+                  The FIFA World Cup™ is the pinnacle of international football, a tournament that unites the globe every four years. Since its inception in Uruguay in 1930, it has grown from a 13-team invitational to a global phenomenon followed by billions.
+                </p>
+                <p>
+                  From the dominance of Brazil&apos;s &quot;Samba Football&quot; led by the legendary Pelé, to Diego Maradona&apos;s &quot;Hand of God&quot; and solo brilliance in 1986, the World Cup has been the stage for football&apos;s most iconic moments.
+                </p>
+                <p>
+                  In 2022, we witnessed Lionel Messi fulfill his destiny in Qatar, leading Argentina to their third title in one of the greatest finals ever played. As we look toward 2026, the legacy of the beautiful game continues to inspire new generations of staff and players alike.
+                </p>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-4">
+                <div className="aspect-[4/5] rounded-3xl overflow-hidden border border-red-50 shadow-lg group">
+                  <img 
+                    src="https://images.unsplash.com/photo-1551958219-acbc608c6377?auto=format&fit=crop&q=80&w=600" 
+                    alt="World Cup Ball" 
+                    className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500 scale-110 hover:scale-100"
+                  />
+                </div>
+                <div className="aspect-square rounded-3xl overflow-hidden border border-red-50 shadow-lg group">
+                  <img 
+                    src="https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&q=80&w=600" 
+                    alt="Stadium Atmosphere" 
+                    className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500 scale-110 hover:scale-100"
+                  />
+                </div>
+              </div>
+              <div className="space-y-4 pt-8">
+                <div className="aspect-square rounded-3xl overflow-hidden border border-red-50 shadow-lg group">
+                  <img 
+                    src="https://images.unsplash.com/photo-1522778119026-d647f0596c20?auto=format&fit=crop&q=80&w=600" 
+                    alt="Victory Moment" 
+                    className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500 scale-110 hover:scale-100"
+                  />
+                </div>
+                <div className="aspect-[4/5] rounded-3xl overflow-hidden border border-red-50 shadow-lg group">
+                  <img 
+                    src="https://images.unsplash.com/photo-1518091043644-c1d4457512c6?auto=format&fit=crop&q=80&w=600" 
+                    alt="Fan Passion" 
+                    className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500 scale-110 hover:scale-100"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Facts Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <FactCard title="First Host" value="Uruguay" year="1930" />
+            <FactCard title="Most Titles" value="Brazil" year="5 Times" />
+            <FactCard title="Current King" value="Argentina" year="2022" />
+            <FactCard title="Next Battle" value="USA/CAN/MEX" year="2026" />
+          </div>
+        </motion.div>
       </div>
     </main>
+  );
+}
+
+function FactCard({ title, value, year }: { title: string, value: string, year: string }) {
+  return (
+    <div className="bg-red-50/50 p-6 rounded-3xl border border-red-100 text-center space-y-1">
+      <div className="text-[10px] font-black uppercase tracking-widest text-red-300">{title}</div>
+      <div className="text-2xl font-black italic font-bebas text-red-700 leading-none">{value}</div>
+      <div className="text-xs font-bold text-red-400">{year}</div>
+    </div>
   );
 }
 

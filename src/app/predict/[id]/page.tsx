@@ -17,6 +17,20 @@ interface Match {
   totalGoalsResult?: string;
 }
 
+function getTeamFlag(teamName: string) {
+  const codes: Record<string, string> = {
+    "argentina": "ar", "brazil": "br", "france": "fr", "germany": "de", "spain": "es",
+    "england": "gb-eng", "portugal": "pt", "netherlands": "nl", "belgium": "be", "croatia": "hr",
+    "morocco": "ma", "japan": "jp", "south korea": "kr", "korea": "kr", "usa": "us", "united states": "us",
+    "mexico": "mx", "saudi arabia": "sa", "australia": "au", "senegal": "sn", "poland": "pl",
+    "switzerland": "ch", "denmark": "dk", "tunisia": "tn", "canada": "ca", "wales": "gb-wls",
+    "qatar": "qa", "ecuador": "ec", "iran": "ir", "ghana": "gh", "cameroon": "cm", "serbia": "rs",
+    "costa rica": "cr", "uruguay": "uy", "italy": "it", "india": "in"
+  };
+  const code = codes[teamName.toLowerCase()];
+  return code ? `https://flagcdn.com/w160/${code}.png` : `https://api.dicebear.com/7.x/identicon/svg?seed=${teamName}&backgroundColor=fef2f2`;
+}
+
 export default function PredictPage({
   params,
 }: {
@@ -143,8 +157,16 @@ export default function PredictPage({
                 <Target className="w-3 h-3" />
                 Battle Prediction
               </div>
-              <h1 className="text-4xl md:text-6xl font-black italic tracking-tighter text-red-700 font-bebas uppercase leading-none">
-                {match.teamA} <span className="text-red-600 italic">VS</span> {match.teamB}
+              <h1 className="text-4xl md:text-6xl font-black italic tracking-tighter text-red-700 font-bebas uppercase leading-none flex flex-wrap items-center justify-center gap-4">
+                <div className="flex items-center gap-3">
+                  <img src={getTeamFlag(match.teamA)} alt={match.teamA} className="w-10 h-6 md:w-16 md:h-10 object-cover rounded shadow-sm" />
+                  {match.teamA}
+                </div>
+                <span className="text-red-600 italic">VS</span>
+                <div className="flex items-center gap-3">
+                  {match.teamB}
+                  <img src={getTeamFlag(match.teamB)} alt={match.teamB} className="w-10 h-6 md:w-16 md:h-10 object-cover rounded shadow-sm" />
+                </div>
               </h1>
               {/* Status Badge */}
               <div className="flex flex-col items-center gap-2">

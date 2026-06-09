@@ -33,6 +33,20 @@ function formatKickoff(time: Timestamp | Date | string) {
   }
 }
 
+function getTeamFlag(teamName: string) {
+  const codes: Record<string, string> = {
+    "argentina": "ar", "brazil": "br", "france": "fr", "germany": "de", "spain": "es",
+    "england": "gb-eng", "portugal": "pt", "netherlands": "nl", "belgium": "be", "croatia": "hr",
+    "morocco": "ma", "japan": "jp", "south korea": "kr", "korea": "kr", "usa": "us", "united states": "us",
+    "mexico": "mx", "saudi arabia": "sa", "australia": "au", "senegal": "sn", "poland": "pl",
+    "switzerland": "ch", "denmark": "dk", "tunisia": "tn", "canada": "ca", "wales": "gb-wls",
+    "qatar": "qa", "ecuador": "ec", "iran": "ir", "ghana": "gh", "cameroon": "cm", "serbia": "rs",
+    "costa rica": "cr", "uruguay": "uy", "italy": "it", "india": "in"
+  };
+  const code = codes[teamName.toLowerCase()];
+  return code ? `https://flagcdn.com/w160/${code}.png` : `https://api.dicebear.com/7.x/identicon/svg?seed=${teamName}&backgroundColor=fef2f2`;
+}
+
 export default function Dashboard() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
@@ -172,9 +186,9 @@ export default function Dashboard() {
                   <div className="flex-1 flex flex-col md:flex-row items-center justify-end gap-2 md:gap-4 text-center md:text-right">
                     <div className="w-12 h-12 md:w-20 md:h-20 rounded-xl md:rounded-2xl bg-red-50 border border-red-100 flex items-center justify-center overflow-hidden group-hover:scale-110 transition-transform shadow-sm">
                       <img 
-                        src={`https://api.dicebear.com/7.x/identicon/svg?seed=${match.teamA}&backgroundColor=fef2f2`} 
+                        src={getTeamFlag(match.teamA)} 
                         alt={match.teamA} 
-                        className="w-8 h-8 md:w-12 md:h-12"
+                        className="w-full h-full object-cover"
                       />
                     </div>
                     <span className="text-lg md:text-4xl font-black italic uppercase tracking-tighter text-red-700 font-bebas line-clamp-1">
@@ -192,9 +206,9 @@ export default function Dashboard() {
                   <div className="flex-1 flex flex-col md:flex-row items-center justify-start gap-2 md:gap-4 text-center md:text-left">
                     <div className="w-12 h-12 md:w-20 md:h-20 rounded-xl md:rounded-2xl bg-red-50 border border-red-100 flex items-center justify-center overflow-hidden group-hover:scale-110 transition-transform shadow-sm md:order-1 order-1">
                       <img 
-                        src={`https://api.dicebear.com/7.x/identicon/svg?seed=${match.teamB}&backgroundColor=fef2f2`} 
+                        src={getTeamFlag(match.teamB)} 
                         alt={match.teamB} 
-                        className="w-8 h-8 md:w-12 md:h-12"
+                        className="w-full h-full object-cover"
                       />
                     </div>
                     <span className="text-lg md:text-4xl font-black italic uppercase tracking-tighter text-red-700 font-bebas line-clamp-1 md:order-2 order-2">

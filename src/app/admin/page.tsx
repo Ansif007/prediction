@@ -298,43 +298,51 @@ export default function AdminPage() {
   const exportToExcel = () => {
     const wb = XLSX.utils.book_new();
     
-    // Matches Sheet
-    const matchesWS = XLSX.utils.json_to_sheet(matches.map(m => ({
-      ID: m.id,
+    // 1. Leaderboard Sheet (Results)
+    const leaderboardData = users
+      .filter(u => u.role === 'user')
+      .sort((a, b) => b.totalPoints - a.totalPoints)
+      .map((u, index) => ({
+        Rank: index + 1,
+        Name: u.name,
+        Employee_ID: u.employeeId || 'N/A',
+        Department: u.department || 'N/A',
+        Total_Points: u.totalPoints
+      }));
+    const leaderboardWS = XLSX.utils.json_to_sheet(leaderboardData);
+    XLSX.utils.book_append_sheet(wb, leaderboardWS, "Final Standings");
+
+    // 2. Match Outcomes Sheet
+    const outcomesWS = XLSX.utils.json_to_sheet(matches.map(m => ({
       Match: `${m.teamA} vs ${m.teamB}`,
-      Kickoff: m.kickoffTime instanceof Timestamp ? m.kickoffTime.toDate() : new Date(m.kickoffTime as string),
+      Kickoff: m.kickoffTime instanceof Timestamp ? m.kickoffTime.toDate().toLocaleString() : new Date(m.kickoffTime as string).toLocaleString(),
       Status: m.status,
-      Winner: m.result || 'N/A',
-      Goals: m.totalGoalsResult || 'N/A',
+      Winner_Result: m.result || 'PENDING',
+      Goals_Result: m.totalGoalsResult || 'PENDING',
       Total_Predictions: m.stats?.total || 0
     })));
-    XLSX.utils.book_append_sheet(wb, matchesWS, "Matches");
+    XLSX.utils.book_append_sheet(wb, outcomesWS, "Match Results");
 
-    // Users Sheet
-    const usersWS = XLSX.utils.json_to_sheet(users.map(u => ({
-      ID: u.uid,
-      Name: u.name,
-      Email: u.email,
-      Department: u.department || 'N/A',
-      Employee_ID: u.employeeId || 'N/A',
-      Total_Points: u.totalPoints
-    })));
-    XLSX.utils.book_append_sheet(wb, usersWS, "Users");
-
-    // Predictions Sheet
+    // 3. Detailed Predictions Sheet
     const predsWS = XLSX.utils.json_to_sheet(allPredictions.map(p => {
       const match = matches.find(m => m.id === p.matchId);
+      const isWinnerCorrect = match?.status === 'completed' && p.winnerPrediction === match.result;
+      const isGoalsCorrect = match?.status === 'completed' && p.goalsPrediction === match.totalGoalsResult;
+      
       return {
-        User: p.userName,
-        Match: match ? `${match.teamA} vs ${match.teamB}` : 'Unknown',
-        Winner_Prediction: p.winnerPrediction,
-        Goals_Prediction: p.goalsPrediction,
-        Date: new Date(p.createdAt)
+        Timestamp: new Date(p.createdAt).toLocaleString(),
+        Participant: p.userName,
+        Battle: match ? `${match.teamA} vs ${match.teamB}` : 'Unknown',
+        Predicted_Winner: p.winnerPrediction,
+        Predicted_Goals: p.goalsPrediction,
+        Winner_Points: isWinnerCorrect ? 3 : 0,
+        Goals_Points: isGoalsCorrect ? 2 : 0,
+        Total_Points_Earned: (isWinnerCorrect ? 3 : 0) + (isGoalsCorrect ? 2 : 0)
       };
     }));
-    XLSX.utils.book_append_sheet(wb, predsWS, "Predictions");
+    XLSX.utils.book_append_sheet(wb, predsWS, "Detailed Predictions");
 
-    XLSX.writeFile(wb, `MRF_Contest_Report_${new Date().toLocaleDateString()}.xlsx`);
+    XLSX.writeFile(wb, `MRF_SRC_Contest_Results_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
   if (loading) {

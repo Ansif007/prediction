@@ -5,13 +5,14 @@ import { auth, db } from "../../lib/firebase";
 import { collection, doc, getDoc, getDocs, updateDoc, query, where } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { motion } from "framer-motion";
-import { User as UserIcon, Save, ArrowLeft, BadgeCheck, Star, CheckCircle2, Target, Timer, XCircle } from "lucide-react";
+import { User as UserIcon, Save, ArrowLeft, BadgeCheck, Star, CheckCircle2, Target, Timer, XCircle, Factory } from "lucide-react";
 import Link from "next/link";
 
 interface UserProfile {
   name: string;
   employeeId: string;
   department: string;
+  plant: string;
   email: string;
   totalPoints: number;
 }
@@ -31,6 +32,7 @@ export default function ProfilePage() {
     name: "",
     employeeId: "",
     department: "",
+    plant: "",
     email: "",
     totalPoints: 0
   });
@@ -260,7 +262,22 @@ export default function ProfilePage() {
             </div>
 
             <div>
-              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-red-300 mb-2 block pl-1">Employee Number (Private)</label>
+              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-red-300 mb-2 block pl-1">Plant (Private & Locked)</label>
+              <div className="relative">
+                <div className="absolute left-6 top-1/2 -translate-y-1/2 text-red-200">
+                  <Factory className="w-4 h-4" />
+                </div>
+                <input 
+                  type="text" 
+                  value={profile.plant}
+                  disabled
+                  className="w-full pl-14 pr-6 py-4 rounded-2xl bg-red-50/50 border-2 border-red-50 text-red-200 font-bold cursor-not-allowed"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-red-300 mb-2 block pl-1">Employee Number (Private & Locked)</label>
               <input 
                 type="text" 
                 value={profile.employeeId}
