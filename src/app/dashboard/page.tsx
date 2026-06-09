@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, getDocs, Timestamp, query, where } from "firebase/firestore";
+import { collection, getDoc, getDocs, doc, Timestamp, query, where } from "firebase/firestore";
 import { auth, db } from "../../lib/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
 import Link from "next/link";
@@ -61,7 +61,8 @@ export default function Dashboard() {
       try {
         if (user) {
           const userDoc = await getDoc(doc(db, "users", user.uid));
-          if (userDoc.exists() && userDoc.data().role === "admin") {
+          const userData = userDoc.data();
+          if (userDoc.exists() && userData && userData.role === "admin") {
             router.push("/admin");
             return;
           }
@@ -69,12 +70,12 @@ export default function Dashboard() {
         
         // Fetch Matches
         const querySnapshot = await getDocs(collection(db, "matches"));
-        const matchList: Match[] = querySnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...(doc.data() as Omit<Match, "id">),
+        const matchList: Match[] = querySnapshot.docs.map((docItem) => ({
+          id: docItem.id,
+          ...(docItem.data() as Omit<Match, "id">),
         }));
         // Sort matches by kickoff time (latest first)
-        matchList.sort((a, b) => {
+        matchList.sort((a: Match, b: Match) => {
           const timeA = a.kickoffTime instanceof Timestamp ? a.kickoffTime.toDate().getTime() : new Date(a.kickoffTime as string | number | Date).getTime();
           const timeB = b.kickoffTime instanceof Timestamp ? b.kickoffTime.toDate().getTime() : new Date(b.kickoffTime as string | number | Date).getTime();
           return timeB - timeA;
@@ -84,9 +85,9 @@ export default function Dashboard() {
         // Fetch User Rank and Points
         if (user) {
           const usersSnap = await getDocs(query(collection(db, "users"), where("role", "==", "user")));
-          const allUsers = usersSnap.docs.map(doc => ({
-            id: doc.id,
-            points: (doc.data().totalPoints as number) || 0
+          const allUsers = usersSnap.docs.map(docItem => ({
+            id: docItem.id,
+            points: (docItem.data().totalPoints as number) || 0
           })).sort((a, b) => b.points - a.points);
 
           const currentUserData = allUsers.find(u => u.id === user.uid);
