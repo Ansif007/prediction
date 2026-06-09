@@ -200,35 +200,13 @@ export default function Home() {
         </div>
       )}
 
-      {/* Stats/Features Section */}
-      <div className="max-w-7xl mx-auto px-6 -mt-10 md:-mt-20 relative z-20 pb-16 md:pb-20">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8">
-          <FeatureCard 
-            icon={<Target className="w-6 h-6 md:w-8 md:h-8 text-red-600" />}
-            title="Predict Matches"
-            desc="Submit your scores before kickoff. Every goal counts towards your rank."
-            color="bg-red-50"
-          />
-          <FeatureCard 
-            icon={<Trophy className="w-6 h-6 md:w-8 md:h-8 text-yellow-600" />}
-            title="Win Prizes"
-            desc="Top 3 predictors win exclusive company rewards and the bragging rights."
-            color="bg-yellow-50"
-          />
-          <FeatureCard 
-            icon={<Users className="w-6 h-6 md:w-8 md:h-8 text-red-400" />}
-            title="Office Rivalry"
-            desc="See how you stack up against your team and the whole department."
-            color="bg-red-50"
-          />
-        </div>
-
-        {/* FIFA World Cup History Section */}
+      {/* FIFA World Cup History Section */}
+      <div className="max-w-7xl mx-auto px-6 relative z-20 pb-16 md:pb-20 pt-10">
         <motion.div 
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="mt-20 md:mt-32 space-y-16"
+          className="space-y-16"
         >
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div className="space-y-6">
@@ -313,20 +291,5 @@ function FactCard({ title, value, year }: { title: string, value: string, year: 
       <div className="text-2xl font-black italic font-bebas text-red-700 leading-none">{value}</div>
       <div className="text-xs font-bold text-red-400">{year}</div>
     </div>
-  );
-}
-
-function FeatureCard({ icon, title, desc, color }: { icon: React.ReactNode, title: string, desc: string, color: string }) {
-  return (
-    <motion.div 
-      whileHover={{ y: -10 }}
-      className={`p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] bg-white border border-red-100 card-shadow text-left group transition-all`}
-    >
-      <div className={`w-12 h-12 md:w-16 md:h-16 rounded-xl md:rounded-2xl ${color} flex items-center justify-center mb-4 md:mb-6 group-hover:scale-110 transition-transform`}>
-        {icon}
-      </div>
-      <h3 className="text-xl md:text-2xl font-black italic uppercase tracking-tighter text-red-700 mb-2 md:mb-3 font-bebas">{title}</h3>
-      <p className="text-sm md:text-base text-red-400 font-medium leading-relaxed">{desc}</p>
-    </motion.div>
   );
 }
