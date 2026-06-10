@@ -87,6 +87,13 @@ export default function Home() {
 
         <div className="relative z-10 max-w-5xl px-6 text-center space-y-12">
           <div className="space-y-4">
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-red-600/10 backdrop-blur-md border border-red-600/20 text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-red-600 mb-4"
+            >
+              World Cup Winner Prediction
+            </motion.div>
             <motion.h1
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}

@@ -18,8 +18,8 @@ const bebasNeue = Bebas_Neue({
 });
 
 export const metadata: Metadata = {
-  title: "PredictPro | Match Prediction App",
-  description: "Predict match results and compete with others",
+  title: "MRF SRC | World Cup Arena",
+  description: "Official Match Prediction Platform for MRF Staff Recreation Club, Kottayam",
 };
 
 export default function RootLayout({
