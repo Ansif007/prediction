@@ -90,18 +90,18 @@ export default function Home() {
             <motion.div
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-red-600/10 backdrop-blur-md border border-red-600/20 text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-red-600 mb-4"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-xs md:text-sm font-black uppercase tracking-[0.4em] text-white mb-6"
             >
-              World Cup Winner Prediction
+              MRF STAFF RECREATION CLUB • KOTTAYAM
             </motion.div>
             <motion.h1
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               className="text-6xl md:text-[8.5rem] font-black italic tracking-tight leading-[0.8] uppercase font-bebas text-white drop-shadow-[0_10px_20px_rgba(0,0,0,0.3)]"
             >
-              MRF STAFF <br />
-              RECREATION CLUB <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-red-100 to-white underline decoration-red-600 decoration-8 underline-offset-8">KOTTAYAM</span>
+              WORLD CUP <br />
+              WINNER <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-red-100 to-white underline decoration-red-600 decoration-8 underline-offset-8">PREDICTION</span>
             </motion.h1>
           </div>
 
