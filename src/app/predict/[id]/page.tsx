@@ -11,8 +11,21 @@ import {
 import { db, auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trophy, ArrowLeft, Target, CheckCircle2, Star, Download, Copy } from "lucide-react";
-import { FootballIcon as Football } from "@/components/FootballIcon";
+import { 
+  Trophy, 
+  Users, 
+  Calendar, 
+  ArrowLeft, 
+  Target, 
+  Zap, 
+  Star,
+  CheckCircle2,
+  Clock,
+  AlertCircle,
+  PlayCircle,
+  Download,
+  Copy
+} from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { Match } from "@/types";
@@ -130,9 +143,14 @@ export default function PredictPage({
         <div className="bg-red-50/30 px-6 py-12 md:py-16 text-center border-b border-red-50">
           {match.status === 'completed' ? (
             <div className="flex flex-col items-center gap-6">
-              <div className="w-16 h-16 bg-red-600 rounded-2xl flex items-center justify-center shadow-xl shadow-red-200">
-                <Football className="w-10 h-10 text-white" />
-              </div>
+              <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl border border-red-50 relative overflow-hidden">
+                 <Image 
+                   src="/football.png" 
+                   alt="Football"
+                   fill
+                   className="object-contain p-4"
+                 />
+               </div>
               
               <div className="space-y-2">
                 <h1 className="text-3xl md:text-4xl font-black uppercase tracking-[0.2em] text-red-700 font-bebas leading-none">

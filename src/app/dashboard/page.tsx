@@ -16,7 +16,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { Calendar, ChevronRight, Trophy, Star } from "lucide-react";
-import { FootballIcon as Football } from "@/components/FootballIcon";
 import { useRouter } from "next/navigation";
 import { Match } from "@/types";
 import { formatKickoff, getTeamFlag } from "@/lib/utils";
@@ -104,7 +103,14 @@ export default function Dashboard() {
       <header className="mb-8 md:mb-16 flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="space-y-2 md:space-y-4 text-center md:text-left">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-50 text-red-600 text-[10px] md:text-xs font-black uppercase tracking-widest mx-auto md:mx-0">
-            <Football className="w-3 h-3" />
+            <div className="relative w-3 h-3">
+              <Image 
+                src="/football.png" 
+                alt="Football"
+                fill
+                className="object-contain"
+              />
+            </div>
             Live Arena
           </div>
           <h1 className="text-4xl md:text-6xl font-black italic tracking-[0.1em] text-red-700 font-bebas leading-none uppercase">
@@ -143,6 +149,19 @@ export default function Dashboard() {
       </header>
 
       <div className="grid gap-4 md:gap-6">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-black uppercase tracking-widest text-red-900 font-bebas italic">Active Battles</h3>
+          <div className="flex gap-4">
+            <span className="flex items-center gap-1.5 text-[10px] font-bold text-red-400 uppercase tracking-wider">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse" />
+              Live
+            </span>
+            <span className="flex items-center gap-1.5 text-[10px] font-bold text-green-600 uppercase tracking-wider">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-600" />
+              Completed
+            </span>
+          </div>
+        </div>
         {matches.map((match, index) => (
           <motion.div
             key={match.id}

@@ -57,3 +57,14 @@ body {
 .font-bebas {
   font-family: 'Bebas Neue', sans-serif;
 }
+
+@theme {
+  --animate-ring: ring 2s ease-in-out infinite;
+  --animate-spin-slow: spin 3s linear infinite;
+
+  @keyframes ring {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(15deg); }
+    75% { transform: rotate(-15deg); }
+  }
+}
