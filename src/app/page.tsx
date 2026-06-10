@@ -79,24 +79,14 @@ export default function Home() {
         </div>
 
         <div className="relative z-10 max-w-5xl px-6 text-center space-y-6 md:space-y-8">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-full bg-white/20 backdrop-blur-md border border-white/30 text-[10px] md:text-xs font-black uppercase tracking-[0.2em]"
-          >
-            <Zap className="w-3 h-3 md:w-4 md:h-4 text-yellow-400 fill-yellow-400" />
-            Official Internal Contest
-          </motion.div>
-
           <motion.h1
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="text-5xl md:text-8xl font-black italic tracking-tighter leading-[0.9] md:leading-none font-bebas"
+            className="text-5xl md:text-8xl font-black italic tracking-[0.05em] leading-[0.9] md:leading-none font-bebas"
           >
-            MRF STAFF RECREATION <br />
-            <span className="text-white underline decoration-red-600 decoration-4 md:decoration-8 underline-offset-4 md:underline-offset-8">CLUB KOTTAYAM</span> <br />
-            PREDICTION CHALLENGE
+            MRF STAFF RECREATION CLUB <br />
+            <span className="text-white underline decoration-red-600 decoration-4 md:decoration-8 underline-offset-4 md:underline-offset-8">KOTTAYAM</span>
           </motion.h1>
 
           <motion.p

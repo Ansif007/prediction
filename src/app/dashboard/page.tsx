@@ -106,9 +106,8 @@ export default function Dashboard() {
             <Football className="w-3 h-3" />
             Live Arena
           </div>
-          <h1 className="text-4xl md:text-6xl font-black italic tracking-tighter text-red-700 font-bebas leading-[0.9]">
-            MRF STAFF RECREATION CLUB <br />
-            <span className="text-red-600 underline decoration-red-100 underline-offset-4 md:underline-offset-8">KOTTAYAM</span>
+          <h1 className="text-4xl md:text-6xl font-black italic tracking-[0.05em] text-red-700 font-bebas leading-none">
+            MRF STAFF RECREATION CLUB <span className="text-red-600 underline decoration-red-100 underline-offset-4 md:underline-offset-8">KOTTAYAM</span>
           </h1>
           {isAdmin ? (
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-50 text-yellow-700 text-[10px] font-black uppercase tracking-widest mx-auto md:mx-0 border border-yellow-100">

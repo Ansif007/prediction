@@ -202,9 +202,9 @@ export default function PredictPage({
         <div className="p-6 md:p-12 space-y-12">
           {/* Winner Prediction */}
           <section>
-            <h2 className="text-xl font-black italic tracking-tighter text-red-700 font-bebas mb-6 uppercase flex items-center gap-3">
+            <h2 className="text-xl font-black italic tracking-[0.05em] text-red-700 font-bebas mb-6 uppercase flex items-center gap-3">
               <Target className="w-5 h-5 text-red-600" />
-              Who Wins? <span className="text-xs text-red-400 normal-case font-bold ml-auto">(2 Points)</span>
+              Who Wins? <span className="text-xs text-red-400 normal-case font-bold ml-auto tracking-normal">(2 Points)</span>
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {[match.teamA, "DRAW", match.teamB].map((option) => (
@@ -235,9 +235,9 @@ export default function PredictPage({
 
           {/* Goals Prediction */}
           <section>
-            <h2 className="text-xl font-black italic tracking-tighter text-red-700 font-bebas mb-6 uppercase flex items-center gap-3">
+            <h2 className="text-xl font-black italic tracking-[0.05em] text-red-700 font-bebas mb-6 uppercase flex items-center gap-3">
               <Trophy className="w-5 h-5 text-red-600" />
-              Total Goals? <span className="text-xs text-red-400 normal-case font-bold ml-auto">(1 Point)</span>
+              Total Goals? <span className="text-xs text-red-400 normal-case font-bold ml-auto tracking-normal">(1 Point)</span>
             </h2>
             <div className="grid grid-cols-3 md:grid-cols-5 gap-3 md:gap-4">
               {["0", "1", "2", "3", "4+"].map((num) => (

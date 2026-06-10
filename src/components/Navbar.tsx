@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, signOut, User } from "firebase/auth";
 import { useEffect, useState } from "react";
-import { LayoutDashboard, Trophy, LogOut, User as UserIcon, Home, Globe, Menu, X, ShieldCheck } from "lucide-react";
+import { LayoutDashboard, Trophy, LogOut, User as UserIcon, Home, Dribbble as Football, Menu, X, ShieldCheck } from "lucide-react";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useToast } from "./Toast";
@@ -60,16 +60,14 @@ export default function Navbar() {
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 glass border-b border-red-100 px-4 md:px-6 py-2 md:py-3">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2 group" onClick={() => setIsMenuOpen(false)}>
-          <div className="w-9 h-9 md:w-10 md:h-10 bg-red-600 rounded-xl flex items-center justify-center group-hover:rotate-12 transition-transform shadow-lg shadow-red-200">
-            <Globe className="w-5 h-5 md:w-6 md:h-6 text-white" />
+        <Link href="/" className="flex items-center gap-3 group" onClick={() => setIsMenuOpen(false)}>
+          <div className="w-9 h-9 md:w-11 md:h-11 bg-red-600 rounded-xl flex items-center justify-center group-hover:rotate-[360deg] transition-all duration-700 shadow-lg shadow-red-200">
+            <Football className="w-5 h-5 md:w-6 md:h-6 text-white" />
           </div>
           <div className="flex flex-col">
-            <span className="text-base md:text-lg font-black tracking-tighter text-red-600 leading-none uppercase font-bebas">
-              MRF STAFF RECREATION <span className="text-red-800">CLUB KOTTAYAM</span>
-            </span>
-            <span className="text-[8px] md:text-[10px] font-bold text-red-400 uppercase tracking-widest leading-none">
-              Internal Edition
+            <span className="text-base md:text-xl font-black tracking-[0.05em] text-red-600 leading-[0.9] uppercase font-bebas">
+              MRF STAFF <br />
+              <span className="text-red-800">RECREATION CLUB</span>
             </span>
           </div>
         </Link>
@@ -83,7 +81,7 @@ export default function Navbar() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wider transition-all px-4 py-2 rounded-lg ${
+                className={`flex items-center gap-2 text-sm font-bold uppercase tracking-[0.1em] transition-all px-4 py-2 rounded-lg ${
                   isActive 
                     ? "bg-red-600 text-white shadow-md shadow-red-200" 
                     : "text-red-500 hover:text-red-700 hover:bg-red-50"
