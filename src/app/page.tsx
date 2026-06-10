@@ -70,9 +70,9 @@ export default function Home() {
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-white text-slate-900">
+    <main className="relative min-h-screen overflow-visible bg-white text-slate-900">
       {/* Background Hero */}
-      <div className="relative min-h-[95vh] flex items-center justify-center pt-10 pb-20 overflow-hidden">
+      <div className="relative min-h-[95vh] flex items-center justify-center pt-10 pb-28 overflow-visible">
         <div className="absolute inset-0 z-0">
           <Image
             src="https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&q=80&w=1600"
@@ -90,14 +90,15 @@ export default function Home() {
             <motion.div
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-xs md:text-sm font-black uppercase tracking-[0.4em] text-white mb-6"
+              className="flex flex-col items-center gap-1 px-4 md:px-6 py-3 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-xs md:text-sm font-black uppercase tracking-wide md:tracking-[0.3em] text-white mb-6"
             >
-              MRF STAFF RECREATION CLUB • KOTTAYAM
+              <span>MRF STAFF RECREATION CLUB</span>
+              <span>KOTTAYAM</span>
             </motion.div>
             <motion.h1
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
-              className="text-6xl md:text-[8.5rem] font-black italic tracking-tight leading-[0.8] uppercase font-bebas text-white drop-shadow-[0_10px_20px_rgba(0,0,0,0.3)]"
+              className="text-5xl md:text-7xl font-black tracking-tight leading-[1.1] uppercase font-dm-sans text-white drop-shadow-[0_10px_20px_rgba(0,0,0,0.3)] overflow-visible"
             >
               WORLD CUP <br />
               WINNER <br />
@@ -114,7 +115,7 @@ export default function Home() {
               {user ? (
                 <Link
                   href="/dashboard"
-                  className="group w-full sm:w-auto flex items-center justify-center gap-3 px-10 py-5 bg-red-600 text-white font-bold uppercase tracking-[0.2em] rounded-2xl hover:bg-red-700 transition-all hover:scale-105 shadow-2xl shadow-red-500/40 active:scale-95 text-base font-bebas italic"
+                  className="group w-full sm:w-auto flex items-center justify-center gap-2 md:gap-3 px-6 md:px-10 py-4 md:py-5 bg-red-600 text-white font-bold uppercase tracking-tight md:tracking-[0.15em] rounded-2xl hover:bg-red-700 transition-all hover:scale-105 shadow-2xl shadow-red-500/40 active:scale-95 text-sm md:text-base font-bebas italic whitespace-nowrap"
                 >
                   Enter the Arena
                   <ArrowRight className="w-5 h-5 group-hover:translate-x-1.5 transition-transform" />
@@ -122,7 +123,7 @@ export default function Home() {
               ) : (
                 <button
                   onClick={login}
-                  className="w-full sm:w-auto flex items-center justify-center gap-3 px-10 py-5 bg-white text-red-600 font-bold uppercase tracking-[0.2em] rounded-2xl hover:bg-red-50 transition-all hover:scale-105 shadow-2xl shadow-red-100 active:scale-95 text-base font-bebas italic"
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 md:gap-3 px-6 md:px-10 py-4 md:py-5 bg-white text-red-600 font-bold uppercase tracking-tight md:tracking-[0.15em] rounded-2xl hover:bg-red-50 transition-all hover:scale-105 shadow-2xl shadow-red-100 active:scale-95 text-sm md:text-base font-bebas italic whitespace-nowrap"
                 >
                   <Image src="https://www.google.com/favicon.ico" alt="Google" width={20} height={20} />
                   Sign in to Play
@@ -131,7 +132,7 @@ export default function Home() {
               
               <Link
                 href="/leaderboard"
-                className="w-full sm:w-auto px-10 py-5 bg-white/10 backdrop-blur-md border-2 border-white/30 text-white font-bold uppercase tracking-[0.2em] rounded-2xl hover:bg-white/20 transition-all text-base font-bebas italic shadow-xl"
+                className="w-full sm:w-auto px-6 md:px-10 py-4 md:py-5 bg-white/10 backdrop-blur-md border-2 border-white/30 text-white font-bold uppercase tracking-tight md:tracking-[0.15em] rounded-2xl hover:bg-white/20 transition-all text-sm md:text-base font-bebas italic shadow-xl whitespace-nowrap"
               >
                 Leaderboard
               </Link>
@@ -172,46 +173,47 @@ export default function Home() {
 
       {/* Historical Spectacle Section */}
       <section className="max-w-6xl mx-auto px-6 py-24 relative z-20 border-t border-red-50 bg-slate-50/30">
-        <div className="grid md:grid-cols-2 gap-16 items-center">
+        <div className="grid md:grid-cols-[1.05fr_0.95fr] gap-16 items-center">
           <div className="space-y-8">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-red-50 border border-red-100 text-red-600 text-[10px] font-black uppercase tracking-[0.2em]">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-red-50 border border-red-100 text-red-600 text-[10px] font-black uppercase tracking-tight md:tracking-[0.15em] whitespace-nowrap">
               <Globe className="w-3.5 h-3.5" />
               Tournament Legacy
             </div>
-            <h2 className="text-5xl md:text-7xl font-black italic tracking-tight text-red-900 font-bebas uppercase leading-none">
-              THE GREATEST SHOW <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-600 to-red-400">ON THE PLANET</span>
-            </h2>
-            <div className="space-y-6 text-red-900/70 text-sm md:text-base leading-relaxed font-medium">
-              <p>
-                The FIFA World Cup™ stands as the absolute apex of international football, a global battlefield that unites and ignites nations every four years. Since its historic 1930 dawn in Uruguay, it has evolved into a multi-billion consumer phenomenon.
-              </p>
-              <p>
-                As we approach the historic 2026 expansion across USA, Canada, and Mexico, the stage is set for the largest tournament in history. Our club honors this legacy by bringing the excitement of prediction directly to you.
-              </p>
+            <div className="space-y-6">
+              <h2 className="text-4xl md:text-6xl font-black tracking-tight text-red-900 font-dm-sans leading-[1.15] overflow-visible">
+                THE GREATEST SHOW <br />
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-600 to-red-400">ON THE PLANET</span>
+              </h2>
+              <div className="rounded-[2.5rem] bg-white/95 p-8 border border-red-50 shadow-[0_30px_60px_-40px_rgba(220,38,38,0.35)]">
+                <p className="text-red-900/80 text-sm md:text-base leading-relaxed font-medium">
+                  The FIFA World Cup™ stands as the absolute apex of international football, a global battlefield that unites and ignites nations every four years. Since its historic 1930 dawn in Uruguay, it has evolved into a multi-billion consumer phenomenon.
+                </p>
+                <p className="mt-4 text-red-900/80 text-sm md:text-base leading-relaxed font-medium">
+                  As we approach the historic 2026 expansion across USA, Canada, and Mexico, the stage is set for the largest tournament in history. Our club honors this legacy by bringing the excitement of prediction directly to you.
+                </p>
+              </div>
             </div>
 
-            {/* Metrics Grid */}
-            <div className="grid grid-cols-2 gap-4 pt-4">
-              <div className="bg-white p-5 rounded-2xl border border-red-50 shadow-sm hover:shadow-md transition-shadow">
-                <div className="text-[10px] font-black text-red-300 uppercase tracking-widest mb-1">First Host</div>
-                <div className="text-2xl font-black text-red-900 font-bebas italic">URUGUAY</div>
-                <div className="text-[10px] font-bold text-red-400">1930</div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              <div className="rounded-[2rem] border border-red-100 bg-white p-6 shadow-sm hover:shadow-md transition-all">
+                <div className="text-[10px] font-black uppercase tracking-widest text-red-300 mb-3">First Host</div>
+                <div className="text-3xl md:text-4xl font-black text-red-900 font-bebas italic">URUGUAY</div>
+                <div className="mt-3 text-xs md:text-sm font-bold text-red-400">1930</div>
               </div>
-              <div className="bg-white p-5 rounded-2xl border border-red-50 shadow-sm hover:shadow-md transition-shadow">
-                <div className="text-[10px] font-black text-red-300 uppercase tracking-widest mb-1">Most Titles</div>
-                <div className="text-2xl font-black text-red-900 font-bebas italic">BRAZIL</div>
-                <div className="text-[10px] font-bold text-red-400">5 TIMES</div>
+              <div className="rounded-[2rem] border border-red-100 bg-white p-6 shadow-sm hover:shadow-md transition-all">
+                <div className="text-[10px] font-black uppercase tracking-widest text-red-300 mb-3">Most Titles</div>
+                <div className="text-3xl md:text-4xl font-black text-red-900 font-bebas italic">BRAZIL</div>
+                <div className="mt-3 text-xs md:text-sm font-bold text-red-400">5 TIMES</div>
               </div>
-              <div className="bg-white p-5 rounded-2xl border border-red-50 shadow-sm hover:shadow-md transition-shadow">
-                <div className="text-[10px] font-black text-red-300 uppercase tracking-widest mb-1">Current King</div>
-                <div className="text-2xl font-black text-red-900 font-bebas italic">ARGENTINA</div>
-                <div className="text-[10px] font-bold text-red-400">2022</div>
+              <div className="rounded-[2rem] border border-red-100 bg-white p-6 shadow-sm hover:shadow-md transition-all">
+                <div className="text-[10px] font-black uppercase tracking-widest text-red-300 mb-3">Current King</div>
+                <div className="text-3xl md:text-4xl font-black text-red-900 font-bebas italic">ARGENTINA</div>
+                <div className="mt-3 text-xs md:text-sm font-bold text-red-400">2022</div>
               </div>
-              <div className="bg-white p-5 rounded-2xl border border-red-50 shadow-sm hover:shadow-md transition-shadow">
-                <div className="text-[10px] font-black text-red-300 uppercase tracking-widest mb-1">Next Battle</div>
-                <div className="text-2xl font-black text-red-900 font-bebas italic">2026</div>
-                <div className="text-[10px] font-bold text-red-400">NORTH AMERICA</div>
+              <div className="rounded-[2rem] border border-red-100 bg-white p-6 shadow-sm hover:shadow-md transition-all">
+                <div className="text-[10px] font-black uppercase tracking-widest text-red-300 mb-3">Next Battle</div>
+                <div className="text-3xl md:text-4xl font-black text-red-900 font-bebas italic">2026</div>
+                <div className="mt-3 text-xs md:text-sm font-bold text-red-400">NORTH AMERICA</div>
               </div>
             </div>
           </div>
@@ -264,7 +266,7 @@ export default function Home() {
           <div className="flex flex-col items-center gap-2">
             
               
-            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-red-300">
+            <p className="text-[10px] font-black uppercase tracking-widest text-red-300">
               CREATED BY <span className="text-red-600">ANSIF</span>
             </p>
             <div className="w-12 h-0.5 bg-red-100 rounded-full mt-1" />

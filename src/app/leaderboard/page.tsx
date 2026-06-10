@@ -98,12 +98,12 @@ export default function Leaderboard() {
   const theRest = users.slice(3);
 
   return (
-    <main className="max-w-5xl mx-auto px-4 md:px-6 py-8 md:py-12">
+    <main className="max-w-5xl mx-auto px-4 md:px-6 py-8 md:py-12 overflow-visible">
       <header className="mb-8 md:mb-16 text-center space-y-4">
         <div className="inline-flex p-3 md:p-4 rounded-2xl md:rounded-3xl bg-red-600 text-white shadow-xl shadow-red-200 mb-2 md:mb-4 rotate-3">
           <Trophy className="w-8 h-8 md:w-10 md:h-10" />
         </div>
-        <h1 className="text-4xl md:text-6xl font-black italic tracking-[0.1em] text-red-700 font-bebas uppercase leading-none">
+        <h1 className="text-4xl md:text-6xl font-black italic tracking-[0.1em] text-red-700 font-bebas uppercase leading-[1.1] overflow-visible\">
           THE <span className="text-red-600">HALL</span> OF FAME
         </h1>
         <p className="text-xs md:text-sm text-red-400 font-bold max-w-md mx-auto uppercase tracking-wider px-4">

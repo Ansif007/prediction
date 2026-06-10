@@ -58,6 +58,17 @@ body {
   font-family: 'Bebas Neue', sans-serif;
 }
 
+.running-letters {
+  display: inline-block;
+  animation: runLetters 1.6s ease-in-out infinite;
+}
+
+@keyframes runLetters {
+  0% { transform: translateX(-4px); }
+  50% { transform: translateX(4px); }
+  100% { transform: translateX(-4px); }
+}
+
 @theme {
   --animate-ring: ring 2s ease-in-out infinite;
   --animate-spin-slow: spin 3s linear infinite;

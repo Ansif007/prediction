@@ -208,7 +208,7 @@ export default function PredictPage({
                 </div>
               </div>
               
-              <h1 className="text-4xl md:text-6xl font-black italic tracking-[0.1em] text-red-700 font-bebas uppercase leading-none flex flex-wrap items-center justify-center gap-4">
+              <h1 className="text-4xl md:text-6xl font-black italic tracking-[0.1em] text-red-700 font-bebas uppercase leading-[1.1] flex flex-wrap items-center justify-center gap-4 overflow-visible">
                 <div className="flex items-center gap-3">
                   <div className="relative w-10 h-6 md:w-16 md:h-10 overflow-hidden rounded shadow-sm">
                     <Image src={getTeamFlag(match.teamA)} alt={match.teamA} fill className="object-cover" />
@@ -232,7 +232,7 @@ export default function PredictPage({
           <section>
             <h2 className="text-xl font-black italic tracking-[0.1em] text-red-700 font-bebas mb-6 uppercase flex items-center gap-3">
               <Target className="w-5 h-5 text-red-600" />
-              Who Wins? <span className="text-xs text-red-400 normal-case font-bold ml-auto tracking-normal">(2 Points)</span>
+              PREDICT THE OUTCOME OF THE MATCH <span className="text-xs text-red-400 normal-case font-bold ml-auto tracking-normal">(2 Points)</span>
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {[match.teamA, "DRAW", match.teamB].map((option) => (
@@ -265,7 +265,7 @@ export default function PredictPage({
           <section>
             <h2 className="text-xl font-black italic tracking-[0.1em] text-red-700 font-bebas mb-6 uppercase flex items-center gap-3">
               <Trophy className="w-5 h-5 text-red-600" />
-              Total Goals? <span className="text-xs text-red-400 normal-case font-bold ml-auto tracking-normal">(1 Point)</span>
+              HOW MANY GOALS WOULD BE SCORED IN TOTAL ? <span className="text-xs text-red-400 normal-case font-bold ml-auto tracking-normal">(1 Point)</span>
             </h2>
             <div className="grid grid-cols-3 md:grid-cols-5 gap-3 md:gap-4">
               {["0", "1", "2", "3", "4+"].map((num) => (

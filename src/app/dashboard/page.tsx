@@ -52,11 +52,11 @@ export default function Dashboard() {
           id: docItem.id,
           ...(docItem.data() as Omit<Match, "id">),
         }));
-        // Sort matches by kickoff time (latest first)
+        // Sort matches by kickoff time (earliest first)
         matchList.sort((a: Match, b: Match) => {
           const timeA = a.kickoffTime instanceof Timestamp ? a.kickoffTime.toDate().getTime() : new Date(a.kickoffTime as string | number | Date).getTime();
           const timeB = b.kickoffTime instanceof Timestamp ? b.kickoffTime.toDate().getTime() : new Date(b.kickoffTime as string | number | Date).getTime();
-          return timeB - timeA;
+          return timeA - timeB;
         });
         setMatches(matchList);
 
@@ -99,7 +99,7 @@ export default function Dashboard() {
   }
 
   return (
-    <main className="max-w-6xl mx-auto px-4 md:px-6 py-8 md:py-12">
+    <main className="max-w-6xl mx-auto px-4 md:px-6 py-8 md:py-12 overflow-visible">
       <header className="mb-8 md:mb-16 flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="space-y-2 md:space-y-4 text-center md:text-left">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-50 text-red-600 text-[10px] md:text-xs font-black uppercase tracking-widest mx-auto md:mx-0">
@@ -113,7 +113,7 @@ export default function Dashboard() {
             </div>
             Live Arena
           </div>
-          <h1 className="text-4xl md:text-6xl font-black italic tracking-[0.1em] text-red-700 font-bebas leading-none uppercase">
+          <h1 className="text-4xl md:text-6xl font-black italic tracking-[0.1em] text-red-700 font-bebas leading-[1.1] uppercase overflow-visible">
             Battle Arena
           </h1>
           {isAdmin ? (
@@ -246,8 +246,8 @@ function MatchCardContent({ match, currentTime }: { match: Match, currentTime: D
       {/* Match UI */}
       <div className="flex-1 flex items-center justify-between md:justify-center gap-2 md:gap-12 w-full pt-2 md:pt-0">
         {/* Team A */}
-        <div className="flex-1 flex flex-col md:flex-row items-center justify-end gap-2 md:gap-4 text-center md:text-right">
-          <div className="relative w-12 h-12 md:w-20 md:h-20 rounded-xl md:rounded-2xl bg-red-50 border border-red-100 flex items-center justify-center overflow-hidden group-hover:scale-110 transition-transform shadow-sm">
+        <div className="flex-1 flex flex-col md:flex-row items-center justify-end gap-2 md:gap-4 text-center md:text-right min-w-0">
+          <div className="relative w-12 h-12 md:w-20 md:h-20 rounded-xl md:rounded-2xl bg-red-50 border border-red-100 flex items-center justify-center overflow-hidden group-hover:scale-110 transition-transform shadow-sm shrink-0">
             <Image 
               src={getTeamFlag(match.teamA)} 
               alt={match.teamA} 
@@ -255,7 +255,7 @@ function MatchCardContent({ match, currentTime }: { match: Match, currentTime: D
               className="object-cover"
             />
           </div>
-          <span className="text-lg md:text-4xl font-black italic uppercase tracking-tighter text-red-700 font-bebas line-clamp-1">
+          <span className="text-lg md:text-4xl font-black italic uppercase tracking-[-0.05em] text-red-700 font-bebas truncate overflow-visible leading-[1.15]">
             {match.teamA}
           </span>
         </div>
@@ -267,8 +267,8 @@ function MatchCardContent({ match, currentTime }: { match: Match, currentTime: D
         </div>
 
         {/* Team B */}
-        <div className="flex-1 flex flex-col md:flex-row items-center justify-start gap-2 md:gap-4 text-center md:text-left">
-          <div className="relative w-12 h-12 md:w-20 md:h-20 rounded-xl md:rounded-2xl bg-red-50 border border-red-100 flex items-center justify-center overflow-hidden group-hover:scale-110 transition-transform shadow-sm md:order-1 order-1">
+        <div className="flex-1 flex flex-col md:flex-row items-center justify-start gap-2 md:gap-4 text-center md:text-left min-w-0">
+          <div className="relative w-12 h-12 md:w-20 md:h-20 rounded-xl md:rounded-2xl bg-red-50 border border-red-100 flex items-center justify-center overflow-hidden group-hover:scale-110 transition-transform shadow-sm md:order-1 order-1 shrink-0">
             <Image 
               src={getTeamFlag(match.teamB)} 
               alt={match.teamB} 
@@ -276,7 +276,7 @@ function MatchCardContent({ match, currentTime }: { match: Match, currentTime: D
               className="object-cover"
             />
           </div>
-          <span className="text-lg md:text-4xl font-black italic uppercase tracking-tighter text-red-700 font-bebas line-clamp-1 md:order-2 order-2">
+          <span className="text-lg md:text-4xl font-black italic uppercase tracking-[-0.05em] text-red-700 font-bebas truncate overflow-visible leading-[1.15] md:order-2 order-2">
             {match.teamB}
           </span>
         </div>

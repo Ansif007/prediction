@@ -11,6 +11,7 @@ import { usePathname, useRouter } from "next/navigation";
 export default function SetupModal() {
   const [isOpen, setIsOpen] = useState(false);
   const [employeeId, setEmployeeId] = useState("");
+  const [employeeName, setEmployeeName] = useState("");
   const [department, setDepartment] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -52,6 +53,36 @@ export default function SetupModal() {
     });
     return () => unsubscribe();
   }, [pathname, router]);
+
+
+  // Lookup employee name from allowedEmployees collection when ID changes
+  useEffect(() => {
+    let mounted = true;
+    const lookup = async () => {
+      const clean = employeeId.trim();
+      if (!clean) {
+        if (mounted) setEmployeeName("");
+        return;
+      }
+      try {
+        const q = query(collection(db, "allowedEmployees"), where("employeeId", "==", clean));
+        const snapshot = await getDocs(q);
+        if (!snapshot.empty) {
+          const data = snapshot.docs[0].data();
+          if (mounted) setEmployeeName((data as any).name || "");
+        } else {
+          if (mounted) setEmployeeName("");
+        }
+      } catch (err) {
+        console.error("Error fetching allowed employee:", err);
+        if (mounted) setEmployeeName("");
+      }
+    };
+
+    // simple debounce
+    const t = setTimeout(lookup, 300);
+    return () => { mounted = false; clearTimeout(t); };
+  }, [employeeId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -110,12 +141,12 @@ export default function SetupModal() {
               <ShieldCheck className="w-8 h-8 md:w-10 md:h-10 text-white" />
             </div>
 
-            <h2 className="text-3xl md:text-4xl font-black italic tracking-tighter text-red-700 font-bebas mb-3 uppercase leading-none">
+            <h2 className="text-3xl md:text-4xl font-black italic tracking-tighter text-red-700 font-bebas mb-3 uppercase leading-none running-letters">
               VERIFY YOUR <span className="text-red-600">IDENTITY</span>
             </h2>
             
             <p className="text-xs md:text-sm text-red-400 font-bold uppercase tracking-widest mb-8 md:mb-10 leading-relaxed">
-              To join the company contest, please enter your <span className="text-red-600">Details</span>. You only need to do this once.
+              To join the contest, please enter your <span className="text-red-600">Details</span>. You only need to do this once.
             </p>
 
             {error && (
@@ -135,12 +166,14 @@ export default function SetupModal() {
                     <UserIcon className="w-5 h-5" />
                   </div>
                   <input 
-                    type="text" 
+                    type="number"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     required
                     placeholder="Enter Employee Number"
                     className="w-full pl-14 pr-6 py-4 md:py-5 rounded-2xl bg-red-50 border-2 border-transparent focus:border-red-600 focus:bg-white outline-none text-red-700 font-black placeholder:text-red-200 transition-all text-sm md:text-base"
                     value={employeeId}
-                    onChange={(e) => setEmployeeId(e.target.value)}
+                    onChange={(e) => setEmployeeId(e.target.value.replace(/[^0-9]/g, ''))}
                   />
                 </div>
 

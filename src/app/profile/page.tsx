@@ -118,7 +118,7 @@ export default function ProfilePage() {
   if (!profile) return null;
 
   return (
-    <main className="max-w-2xl mx-auto px-6 py-8 md:py-12">
+    <main className="max-w-2xl mx-auto px-6 py-8 md:py-12 overflow-visible">
       <Link 
         href="/dashboard" 
         className="inline-flex items-center gap-2 text-red-300 hover:text-red-600 font-bold uppercase tracking-widest text-[10px] md:text-xs mb-8 transition-colors group"
@@ -138,7 +138,7 @@ export default function ProfilePage() {
               <BadgeCheck className="w-3 h-3" />
               Official Participant
             </div>
-            <h1 className="text-4xl md:text-5xl font-black italic tracking-[0.1em] text-red-700 font-bebas leading-none uppercase">
+            <h1 className="text-4xl md:text-5xl font-black italic tracking-[0.1em] text-red-700 font-bebas leading-[1.15] uppercase overflow-visible">
               {profile.name || "USER"} <span className="text-red-600">PROFILE</span>
             </h1>
             <p className="text-[10px] md:text-xs text-red-400 font-bold uppercase tracking-[0.2em]">

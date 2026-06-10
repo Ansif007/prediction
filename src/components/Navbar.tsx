@@ -70,10 +70,12 @@ export default function Navbar() {
               className="object-contain"
             />
           </div>
-          <div className="flex flex-col">
-            <span className="text-base md:text-xl font-black tracking-[0.05em] text-red-600 leading-[0.9] uppercase font-bebas">
-              MRF STAFF <br />
-              <span className="text-red-800">RECREATION CLUB</span>
+          <div className="flex flex-col leading-tight">
+            <span className="text-base md:text-lg font-black tracking-[0.05em] text-red-600 uppercase font-bebas whitespace-nowrap">
+              MRF STAFF RECREATION CLUB
+            </span>
+            <span className="text-base md:text-lg font-black tracking-[0.05em] text-red-800 uppercase font-bebas\">
+              KOTTAYAM
             </span>
           </div>
         </Link>
@@ -129,14 +131,7 @@ export default function Navbar() {
                 <LogOut className="w-5 h-5" />
               </button>
             </div>
-          ) : (
-            <Link
-              href="/"
-              className="hidden md:block px-6 py-2.5 rounded-xl bg-red-600 text-white text-xs font-black uppercase tracking-widest hover:bg-red-700 transition-all shadow-lg shadow-red-200 active:scale-95"
-            >
-              Sign In
-            </Link>
-          )}
+          ) : null}
 
           {/* Mobile Menu Toggle */}
           <button 
@@ -195,15 +190,7 @@ export default function Navbar() {
                   Sign Out
                 </button>
               </div>
-            ) : (
-              <Link
-                href="/"
-                onClick={() => setIsMenuOpen(false)}
-                className="mt-4 w-full py-4 bg-red-600 text-white text-center font-black italic uppercase tracking-tighter font-bebas rounded-2xl shadow-lg shadow-red-200"
-              >
-                Sign In to Start
-              </Link>
-            )}
+            ) : null}
           </div>
         </div>
       )}

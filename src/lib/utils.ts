@@ -24,6 +24,13 @@ export function formatKickoff(time: Timestamp | Date | string | undefined | null
  * Uses flagcdn.com for high-quality SVG flags.
  */
 export function getTeamFlag(teamName: string) {
+  const normalized = teamName
+    .trim()
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/\s+/g, " ")
+    .replace(/[^a-z0-9 ]/g, "");
+
   const codes: Record<string, string> = {
     // Hosts
     "usa": "us", "united states": "us", "mexico": "mx", "canada": "ca",
@@ -32,7 +39,7 @@ export function getTeamFlag(teamName: string) {
     "argentina": "ar", "brazil": "br", "uruguay": "uy", "colombia": "co", "ecuador": "ec", "paraguay": "py", "chile": "cl", "peru": "pe", "venezuela": "ve", "bolivia": "bo",
     
     // Europe
-    "france": "fr", "germany": "de", "spain": "es", "england": "gb-eng", "portugal": "pt", "netherlands": "nl", "belgium": "be", "croatia": "hr", "italy": "it", "serbia": "rs", "switzerland": "ch", "denmark": "dk", "poland": "pl", "wales": "gb-wls", "scotland": "gb-sct", "austria": "at", "turkey": "tr", "ukraine": "ua", "sweden": "se", "norway": "no", "czech republic": "cz", "hungary": "hu", "romania": "ro", "georgia": "ge",
+    "france": "fr", "germany": "de", "spain": "es", "england": "gb-eng", "portugal": "pt", "netherlands": "nl", "belgium": "be", "croatia": "hr", "italy": "it", "serbia": "rs", "switzerland": "ch", "denmark": "dk", "poland": "pl", "wales": "gb-wls", "scotland": "gb-sct", "austria": "at", "turkey": "tr", "ukraine": "ua", "sweden": "se", "norway": "no", "czech republic": "cz", "hungary": "hu", "romania": "ro", "georgia": "ge", "bosnia and herzegovina": "ba", "bosnia herzegovina": "ba",
     
     // Africa
     "morocco": "ma", "senegal": "sn", "tunisia": "tn", "ghana": "gh", "cameroon": "cm", "nigeria": "ng", "algeria": "dz", "egypt": "eg", "ivory coast": "ci", "mali": "ml", "south africa": "za", "dr congo": "cd",
@@ -41,17 +48,17 @@ export function getTeamFlag(teamName: string) {
     "japan": "jp", "south korea": "kr", "korea": "kr", "saudi arabia": "sa", "australia": "au", "iran": "ir", "qatar": "qa", "iraq": "iq", "uzbekistan": "uz", "united arab emirates": "ae", "jordan": "jo", "china": "cn", "india": "in", "vietnam": "vn", "thailand": "th", "indonesia": "id",
     
     // North/Central America
-    "costa rica": "cr", "panama": "pa", "jamaica": "jm", "honduras": "hn", "el salvador": "sv", "guatemala": "gt", "trinidad and tobago": "tt"
+    "costa rica": "cr", "panama": "pa", "jamaica": "jm", "haiti": "ht", "honduras": "hn", "el salvador": "sv", "guatemala": "gt", "trinidad and tobago": "tt"
   };
-  const code = codes[teamName.toLowerCase()];
-  return code ? `https://flagcdn.com/w160/${code}.png` : `https://api.dicebear.com/7.x/identicon/svg?seed=${teamName}&backgroundColor=fef2f2`;
+  const code = codes[normalized];
+  return code ? `https://flagcdn.com/w160/${code}.png` : `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(teamName)}&backgroundColor=fef2f2`;
 }
 
 export const WORLD_CUP_2026_TEAMS = [
   "USA", "Mexico", "Canada",
   "Argentina", "Brazil", "Uruguay", "Colombia", "Ecuador", "Paraguay", "Chile", "Peru", "Venezuela", "Bolivia",
-  "France", "Germany", "Spain", "England", "Portugal", "Netherlands", "Belgium", "Croatia", "Italy", "Serbia", "Switzerland", "Denmark", "Poland", "Wales", "Scotland", "Austria", "Turkey", "Ukraine", "Sweden", "Norway", "Czech Republic", "Hungary", "Romania", "Georgia",
+  "France", "Germany", "Spain", "England", "Portugal", "Netherlands", "Belgium", "Croatia", "Italy", "Serbia", "Switzerland", "Denmark", "Poland", "Wales", "Scotland", "Austria", "Turkey", "Ukraine", "Sweden", "Norway", "Czech Republic", "Hungary", "Romania", "Georgia", "Bosnia and Herzegovina", "Bosnia & Herzegovina",
   "Morocco", "Senegal", "Tunisia", "Ghana", "Cameroon", "Nigeria", "Algeria", "Egypt", "Ivory Coast", "Mali", "South Africa", "DR Congo",
   "Japan", "South Korea", "Saudi Arabia", "Australia", "Iran", "Qatar", "Iraq", "Uzbekistan", "United Arab Emirates", "Jordan", "China", "India", "Vietnam", "Thailand", "Indonesia",
-  "Costa Rica", "Panama", "Jamaica", "Honduras", "El Salvador", "Guatemala", "Trinidad and Tobago"
+  "Costa Rica", "Panama", "Jamaica", "Haiti", "Honduras", "El Salvador", "Guatemala", "Trinidad and Tobago"
 ].sort();
