@@ -38,14 +38,16 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow create: if isSignedIn() && 
         request.resource.data.uid == request.auth.uid &&
-        // Verify match exists and is upcoming
-        get(/databases/$(database)/documents/matches/$(request.resource.data.matchId)).data.status == 'upcoming';
+        // Verify match exists, is upcoming, and kickoff has not passed
+        get(/databases/$(database)/documents/matches/$(request.resource.data.matchId)).data.status == 'upcoming' &&
+        get(/databases/$(database)/documents/matches/$(request.resource.data.matchId)).data.kickoffTime > request.time;
       
       allow update: if isAdmin() || (
         isSignedIn() && 
         resource.data.uid == request.auth.uid &&
-        // Only allow update if match is still upcoming
+        // Only allow update if match is still upcoming and kickoff has not passed
         get(/databases/$(database)/documents/matches/$(resource.data.matchId)).data.status == 'upcoming' &&
+        get(/databases/$(database)/documents/matches/$(resource.data.matchId)).data.kickoffTime > request.time &&
         // Prevent users from changing the uid or matchId
         request.resource.data.uid == resource.data.uid &&
         request.resource.data.matchId == resource.data.matchId

@@ -15,7 +15,7 @@ import { onAuthStateChanged, User } from "firebase/auth";
 import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { Calendar, ChevronRight, Trophy, Globe, Star } from "lucide-react";
+import { Calendar, ChevronRight, Trophy, Star, Activity as Football } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Match } from "@/types";
 import { formatKickoff, getTeamFlag } from "@/lib/utils";
@@ -103,11 +103,12 @@ export default function Dashboard() {
       <header className="mb-8 md:mb-16 flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="space-y-2 md:space-y-4 text-center md:text-left">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-50 text-red-600 text-[10px] md:text-xs font-black uppercase tracking-widest mx-auto md:mx-0">
-            <Globe className="w-3 h-3" />
+            <Football className="w-3 h-3" />
             Live Arena
           </div>
-          <h1 className="text-4xl md:text-5xl font-black italic tracking-tighter text-red-700 font-bebas">
-            MATCH <span className="text-red-600 underline decoration-red-100 underline-offset-4 md:underline-offset-8">SCHEDULE</span>
+          <h1 className="text-4xl md:text-6xl font-black italic tracking-tighter text-red-700 font-bebas leading-[0.9]">
+            MRF STAFF RECREATION CLUB <br />
+            <span className="text-red-600 underline decoration-red-100 underline-offset-4 md:underline-offset-8">KOTTAYAM</span>
           </h1>
           {isAdmin ? (
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-50 text-yellow-700 text-[10px] font-black uppercase tracking-widest mx-auto md:mx-0 border border-yellow-100">
@@ -149,18 +150,14 @@ export default function Dashboard() {
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: index * 0.1 }}
           >
-            {match.status === 'completed' ? (
-              <div className="group block bg-white border border-red-50 rounded-[1.5rem] md:rounded-[2rem] p-4 md:p-8 card-shadow opacity-80 cursor-not-allowed">
-                <MatchCardContent match={match} currentTime={currentTime} />
-              </div>
-            ) : (
-              <Link
-                href={`/predict/${match.id}`}
-                className="group block bg-white border border-red-50 rounded-[1.5rem] md:rounded-[2rem] p-4 md:p-8 card-shadow hover:border-red-400 transition-all active:scale-[0.98]"
-              >
-                <MatchCardContent match={match} currentTime={currentTime} />
-              </Link>
-            )}
+            <Link
+              href={`/predict/${match.id}`}
+              className={`group block bg-white border border-red-50 rounded-[1.5rem] md:rounded-[2rem] p-4 md:p-8 card-shadow hover:border-red-400 transition-all active:scale-[0.98] ${
+                match.status === 'completed' ? 'opacity-90' : ''
+              }`}
+            >
+              <MatchCardContent match={match} currentTime={currentTime} />
+            </Link>
           </motion.div>
         ))}
 
@@ -189,7 +186,7 @@ function MatchCardContent({ match, currentTime }: { match: Match, currentTime: D
             match.status === 'completed' ? 'bg-green-600 text-white shadow-lg shadow-green-100' :
             'bg-red-50 text-red-400 border border-red-100'
           }`}>
-            {match.status === 'completed' ? 'Final' : match.status}
+            {match.status === 'completed' ? 'Completed' : match.status}
           </div>
           
           {/* Lock Status */}

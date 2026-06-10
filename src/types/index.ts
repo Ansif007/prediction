@@ -37,6 +37,8 @@ export interface Prediction {
   winnerPrediction: string;
   goalsPrediction: string;
   createdAt: string;
+  pointsAwarded?: boolean;
+  pointsEarned?: number;
   prediction?: string; // Legacy compatibility
 }
 

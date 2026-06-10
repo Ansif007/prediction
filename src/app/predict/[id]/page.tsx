@@ -11,7 +11,7 @@ import {
 import { db, auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trophy, ArrowLeft, Target, CheckCircle2 } from "lucide-react";
+import { Trophy, ArrowLeft, Target, CheckCircle2, Star } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { Match } from "@/types";
@@ -34,6 +34,7 @@ export default function PredictPage({
   const [showSuccess, setShowAddSuccess] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [pointsEarned, setPointsEarned] = useState<number | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
@@ -60,14 +61,18 @@ export default function PredictPage({
         
         // Lock 1 minute before kickoff
         const lockTime = new Date(kickoff.getTime() - 1 * 60000);
-        setIsLocked(new Date() > lockTime);
+        setIsLocked(new Date() > lockTime || data.status === 'completed' || data.status === 'live');
 
         if (user) {
           const predRef = doc(db, "predictions", `${user.uid}_${id}`);
           const predSnap = await getDoc(predRef);
           if (predSnap.exists()) {
-            setPrediction(predSnap.data().winnerPrediction);
-            setGoals(predSnap.data().goalsPrediction);
+            const predData = predSnap.data();
+            setPrediction(predData.winnerPrediction);
+            setGoals(predData.goalsPrediction);
+            if (predData.pointsAwarded) {
+              setPointsEarned(predData.pointsEarned);
+            }
           }
         }
       }
@@ -129,12 +134,37 @@ export default function PredictPage({
                 match.status === 'live' ? 'bg-red-600 text-white border-red-600 animate-pulse' :
                 'bg-white text-red-300 border-red-50'
               }`}>
-                {match.status}
+                {match.status === 'completed' ? 'Completed' : match.status}
               </div>
               {match.status === 'completed' && match.totalGoalsResult && (
-                <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-50 text-red-700 border border-red-100 text-[10px] font-black uppercase tracking-widest">
-                  <Trophy className="w-3.5 h-3.5" />
-                  Total Goals: {match.totalGoalsResult}
+                <div className="flex flex-col md:flex-row items-center gap-4 mt-4">
+                  <div className="flex flex-col items-center gap-1">
+                    <div className="text-[10px] font-black uppercase tracking-widest text-red-300">Total Goals</div>
+                    <div className="flex items-center gap-3 px-8 py-4 rounded-[2rem] bg-red-50 text-red-700 border-2 border-red-100 text-3xl font-black italic font-bebas">
+                      <Trophy className="w-8 h-8" />
+                      {match.totalGoalsResult}
+                    </div>
+                  </div>
+                  
+                  {match.result && (
+                    <div className="flex flex-col items-center gap-1">
+                      <div className="text-[10px] font-black uppercase tracking-widest text-red-300">Winner</div>
+                      <div className="flex items-center gap-3 px-8 py-4 rounded-[2rem] bg-yellow-400 text-white shadow-xl shadow-yellow-100 text-3xl font-black italic font-bebas border-2 border-yellow-500">
+                        <Star className="w-8 h-8 fill-white" />
+                        {match.result}
+                      </div>
+                    </div>
+                  )}
+
+                  {pointsEarned !== null && (
+                    <div className="flex flex-col items-center gap-1">
+                      <div className="text-[10px] font-black uppercase tracking-widest text-red-300">Your Score</div>
+                      <div className="flex items-center gap-3 px-8 py-4 rounded-[2rem] bg-green-600 text-white shadow-xl shadow-green-100 text-3xl font-black italic font-bebas border-2 border-green-700 animate-in fade-in zoom-in duration-500">
+                        <CheckCircle2 className="w-8 h-8" />
+                        +{pointsEarned}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -180,14 +210,19 @@ export default function PredictPage({
               {[match.teamA, "DRAW", match.teamB].map((option) => (
                 <button
                   key={option}
-                  disabled={isLocked}
+                  disabled={isLocked || isAdmin}
                   onClick={() => setPrediction(option)}
-                  className={`p-6 rounded-[2rem] border-2 transition-all text-center group ${
+                  className={`p-6 rounded-[2rem] border-2 transition-all text-center relative group ${
                     prediction === option
                       ? "bg-red-600 border-red-600 text-white shadow-xl shadow-red-200 scale-105"
                       : "bg-white border-red-50 text-red-700 hover:border-red-200"
-                  } ${isLocked ? 'cursor-not-allowed opacity-80' : ''}`}
+                  } ${isLocked || isAdmin ? 'cursor-default' : 'hover:scale-[1.02]'}`}
                 >
+                  {prediction === option && isLocked && (
+                    <div className="absolute -top-2 -right-2 bg-white text-red-600 rounded-full p-1 shadow-md z-10">
+                      <CheckCircle2 className="w-5 h-5" />
+                    </div>
+                  )}
                   <div className={`text-lg font-black italic uppercase tracking-tighter font-bebas ${
                     prediction === option ? "text-white" : "text-red-700"
                   }`}>
@@ -208,14 +243,19 @@ export default function PredictPage({
               {["0", "1", "2", "3", "4+"].map((num) => (
                 <button
                   key={num}
-                  disabled={isLocked}
+                  disabled={isLocked || isAdmin}
                   onClick={() => setGoals(num)}
-                  className={`py-4 md:py-6 rounded-2xl md:rounded-[1.5rem] border-2 transition-all group ${
+                  className={`py-4 md:py-6 rounded-2xl md:rounded-[1.5rem] border-2 transition-all relative group ${
                     goals === num
-                      ? "bg-red-600 border-red-600 text-white shadow-lg shadow-red-100"
+                      ? "bg-red-600 border-red-600 text-white shadow-lg shadow-red-100 scale-105"
                       : "bg-white border-red-50 text-red-700 hover:border-red-200"
-                  } ${isLocked ? 'cursor-not-allowed opacity-80' : ''}`}
+                  } ${isLocked || isAdmin ? 'cursor-default' : 'hover:scale-[1.02]'}`}
                 >
+                  {goals === num && isLocked && (
+                    <div className="absolute -top-2 -right-2 bg-white text-red-600 rounded-full p-0.5 shadow-md z-10">
+                      <CheckCircle2 className="w-4 h-4" />
+                    </div>
+                  )}
                   <div className="text-xl md:text-2xl font-black font-bebas">{num}</div>
                   <div className={`text-[8px] font-bold uppercase tracking-widest ${
                     goals === num ? "text-red-100" : "text-red-300"

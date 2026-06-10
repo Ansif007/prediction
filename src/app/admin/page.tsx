@@ -25,8 +25,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import * as XLSX from 'xlsx';
-import { Match, UserData, Prediction, Notice } from "@/types";
-import { formatKickoff } from "@/lib/utils";
+import { Match, UserData, Prediction, DeptData, Notice } from "@/types";
+import { formatKickoff, WORLD_CUP_2026_TEAMS } from "@/lib/utils";
 
 type AdminTab = 'matches' | 'users' | 'predictions' | 'notices';
 
@@ -257,12 +257,6 @@ export default function AdminPage() {
         return;
       }
 
-      await updateDoc(doc(db, "matches", matchId), {
-        result,
-        totalGoalsResult: goals,
-        status: "completed"
-      });
-
       const predictionsQuery = query(
         collection(db, "predictions"),
         where("matchId", "==", matchId)
@@ -271,8 +265,20 @@ export default function AdminPage() {
       const predictionSnapshot = await getDocs(predictionsQuery);
       const batch = writeBatch(db);
 
+      // Include match update in the same atomic batch
+      const matchRef = doc(db, "matches", matchId);
+      batch.update(matchRef, {
+        result,
+        totalGoalsResult: goals,
+        status: "completed"
+      });
+
       for (const predictionDoc of predictionSnapshot.docs) {
         const pred = predictionDoc.data() as Prediction;
+        
+        // Skip if points already awarded for this prediction
+        if (pred.pointsAwarded) continue;
+
         const user = users.find(u => u.uid === pred.uid);
         
         // Skip admins
@@ -289,6 +295,13 @@ export default function AdminPage() {
         if (pred.goalsPrediction === goals) {
           pointsEarned += 1;
         }
+
+        // Always mark prediction as processed to prevent double-counting even if 0 points earned
+        const predictionRef = doc(db, "predictions", predictionDoc.id);
+        batch.update(predictionRef, {
+          pointsAwarded: true,
+          pointsEarned: pointsEarned
+        });
 
         if (pointsEarned > 0) {
           const userRef = doc(db, "users", pred.uid);
@@ -833,8 +846,9 @@ export default function AdminPage() {
                 <div>
                   <label className="text-[10px] font-black uppercase tracking-[0.2em] text-red-300 mb-1 block pl-1">Team A</label>
                   <input 
+                    list="wc-teams"
                     type="text" 
-                    placeholder="e.g. Argentina"
+                    placeholder="Search or type team name..."
                     className="w-full px-5 py-3 rounded-xl bg-red-50 border border-red-100 focus:border-red-600 outline-none text-red-700 font-bold placeholder:text-red-200"
                     value={matchForm.teamA}
                     onChange={(e) => setMatchForm({...matchForm, teamA: e.target.value})}
@@ -843,13 +857,20 @@ export default function AdminPage() {
                 <div>
                   <label className="text-[10px] font-black uppercase tracking-[0.2em] text-red-300 mb-1 block pl-1">Team B</label>
                   <input 
+                    list="wc-teams"
                     type="text" 
-                    placeholder="e.g. France"
+                    placeholder="Search or type team name..."
                     className="w-full px-5 py-3 rounded-xl bg-red-50 border border-red-100 focus:border-red-600 outline-none text-red-700 font-bold placeholder:text-red-200"
                     value={matchForm.teamB}
                     onChange={(e) => setMatchForm({...matchForm, teamB: e.target.value})}
                   />
                 </div>
+                
+                <datalist id="wc-teams">
+                  {WORLD_CUP_2026_TEAMS.map(team => (
+                    <option key={team} value={team} />
+                  ))}
+                </datalist>
                 <div>
                   <label className="text-[10px] font-black uppercase tracking-[0.2em] text-red-300 mb-1 block pl-1">Kickoff Time</label>
                   <input 
