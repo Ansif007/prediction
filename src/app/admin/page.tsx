@@ -421,7 +421,7 @@ export default function AdminPage() {
               <ShieldAlert className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-black italic tracking-tighter font-bebas leading-none uppercase">Admin <span className="text-red-200">Panel</span></h1>
+              <h1 className="text-xl font-black italic tracking-[0.1em] font-bebas leading-none uppercase">Admin <span className="text-red-200">Panel</span></h1>
               <p className="text-[10px] font-bold uppercase tracking-widest opacity-70">Battle Management Console</p>
             </div>
           </div>
@@ -477,7 +477,7 @@ export default function AdminPage() {
         <div className="bg-white rounded-[2.5rem] border border-red-50 shadow-xl overflow-hidden">
           {/* Toolbar */}
           <div className="px-8 py-6 border-b border-red-50 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-red-50/30">
-            <h2 className="text-2xl font-black italic tracking-tighter text-red-700 font-bebas uppercase flex items-center gap-3">
+            <h2 className="text-2xl font-black italic tracking-[0.1em] text-red-700 font-bebas uppercase flex items-center gap-3">
               {activeTab === 'matches' && <><Settings className="w-6 h-6" /> Match Deployment</>}
               {activeTab === 'users' && <><Users className="w-6 h-6" /> User Roster</>}
               {activeTab === 'predictions' && <><Target className="w-6 h-6" /> Prediction Feed</>}

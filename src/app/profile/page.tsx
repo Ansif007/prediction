@@ -138,7 +138,7 @@ export default function ProfilePage() {
               <BadgeCheck className="w-3 h-3" />
               Official Participant
             </div>
-            <h1 className="text-4xl md:text-5xl font-black italic tracking-tighter text-red-700 font-bebas leading-none uppercase">
+            <h1 className="text-4xl md:text-5xl font-black italic tracking-[0.1em] text-red-700 font-bebas leading-none uppercase">
               {profile.name || "USER"} <span className="text-red-600">PROFILE</span>
             </h1>
             <p className="text-[10px] md:text-xs text-red-400 font-bold uppercase tracking-[0.2em]">

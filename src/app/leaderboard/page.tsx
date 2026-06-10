@@ -82,7 +82,7 @@ export default function Leaderboard() {
         <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mb-6">
           <Star className="w-8 h-8 text-red-600 animate-pulse" />
         </div>
-        <h2 className="text-3xl font-black italic tracking-tighter text-red-700 font-bebas mb-2 uppercase">Arena Warming Up</h2>
+        <h2 className="text-3xl font-black italic tracking-[0.1em] text-red-700 font-bebas mb-2 uppercase">Arena Warming Up</h2>
         <p className="text-sm text-red-400 font-bold max-w-xs mx-auto uppercase tracking-wider">{error}</p>
         <button 
           onClick={() => window.location.reload()}
@@ -103,7 +103,7 @@ export default function Leaderboard() {
         <div className="inline-flex p-3 md:p-4 rounded-2xl md:rounded-3xl bg-red-600 text-white shadow-xl shadow-red-200 mb-2 md:mb-4 rotate-3">
           <Trophy className="w-8 h-8 md:w-10 md:h-10" />
         </div>
-        <h1 className="text-4xl md:text-6xl font-black italic tracking-tighter text-red-700 font-bebas">
+        <h1 className="text-4xl md:text-6xl font-black italic tracking-[0.1em] text-red-700 font-bebas uppercase leading-none">
           THE <span className="text-red-600">HALL</span> OF FAME
         </h1>
         <p className="text-xs md:text-sm text-red-400 font-bold max-w-md mx-auto uppercase tracking-wider px-4">

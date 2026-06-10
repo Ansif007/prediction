@@ -11,7 +11,7 @@ import {
 import { db, auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trophy, ArrowLeft, Target, CheckCircle2, Star } from "lucide-react";
+import { Trophy, ArrowLeft, Target, CheckCircle2, Star, CircleDot as Football, Download, Copy } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { Match } from "@/types";
@@ -127,82 +127,91 @@ export default function PredictPage({
       <div className="bg-white rounded-[2.5rem] md:rounded-[3.5rem] border border-red-50 card-shadow overflow-hidden">
         {/* Match Header */}
         <div className="bg-red-50/30 px-6 py-12 md:py-16 text-center border-b border-red-50">
-          <div className="flex flex-col items-center gap-6">
-            <div className="flex flex-col items-center gap-2">
-              <div className={`px-5 py-2 rounded-full text-xs font-black uppercase tracking-widest border shadow-sm ${
-                match.status === 'completed' ? 'bg-red-50 text-red-600 border-red-100' : 
-                match.status === 'live' ? 'bg-red-600 text-white border-red-600 animate-pulse' :
-                'bg-white text-red-300 border-red-50'
-              }`}>
-                {match.status === 'completed' ? 'Completed' : match.status}
+          {match.status === 'completed' ? (
+            <div className="flex flex-col items-center gap-6">
+              <div className="w-16 h-16 bg-red-600 rounded-2xl flex items-center justify-center shadow-xl shadow-red-200">
+                <Football className="w-10 h-10 text-white" />
               </div>
-              {match.status === 'completed' && match.totalGoalsResult && (
-                <div className="flex flex-col md:flex-row items-center gap-4 mt-4">
-                  <div className="flex flex-col items-center gap-1">
-                    <div className="text-[10px] font-black uppercase tracking-widest text-red-300">Total Goals</div>
-                    <div className="flex items-center gap-3 px-8 py-4 rounded-[2rem] bg-red-50 text-red-700 border-2 border-red-100 text-3xl font-black italic font-bebas">
-                      <Trophy className="w-8 h-8" />
+              
+              <div className="space-y-2">
+                <h1 className="text-3xl md:text-4xl font-black uppercase tracking-[0.2em] text-red-700 font-bebas leading-none">
+                  Battle Results
+                </h1>
+                <p className="text-[10px] font-bold text-red-300 uppercase tracking-[0.3em]">
+                  {match.teamA} vs {match.teamB}
+                </p>
+              </div>
+
+              <div className="w-full max-w-xl bg-white/80 backdrop-blur-md rounded-[2.5rem] border border-red-100 overflow-hidden shadow-2xl shadow-red-200/50">
+                <div className="p-8 md:p-12 grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12">
+                  <div className="space-y-1 text-center md:text-left">
+                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-red-300">Winner</span>
+                    <div className="text-3xl font-black italic uppercase tracking-wider text-red-700 font-bebas">
+                      {match.result || "DRAW"}
+                    </div>
+                  </div>
+                  <div className="space-y-1 text-center md:text-left">
+                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-red-300">Total Goals</span>
+                    <div className="text-3xl font-black italic uppercase tracking-wider text-red-700 font-bebas">
                       {match.totalGoalsResult}
                     </div>
                   </div>
-                  
-                  {match.result && (
-                    <div className="flex flex-col items-center gap-1">
-                      <div className="text-[10px] font-black uppercase tracking-widest text-red-300">Winner</div>
-                      <div className="flex items-center gap-3 px-8 py-4 rounded-[2rem] bg-yellow-400 text-white shadow-xl shadow-yellow-100 text-3xl font-black italic font-bebas border-2 border-yellow-500">
-                        <Star className="w-8 h-8 fill-white" />
-                        {match.result}
-                      </div>
-                    </div>
-                  )}
-
                   {pointsEarned !== null && (
-                    <div className="flex flex-col items-center gap-1">
-                      <div className="text-[10px] font-black uppercase tracking-widest text-red-300">Your Score</div>
-                      <div className="flex items-center gap-3 px-8 py-4 rounded-[2rem] bg-green-600 text-white shadow-xl shadow-green-100 text-3xl font-black italic font-bebas border-2 border-green-700 animate-in fade-in zoom-in duration-500">
-                        <CheckCircle2 className="w-8 h-8" />
-                        +{pointsEarned}
+                    <div className="col-span-full pt-8 border-t border-red-100 flex flex-col items-center gap-2">
+                      <span className="text-[10px] font-black uppercase tracking-[0.3em] text-green-600">Your Prediction Performance</span>
+                      <div className="text-5xl font-black italic text-green-600 font-bebas">
+                        +{pointsEarned} <span className="text-xl">PTS</span>
                       </div>
                     </div>
                   )}
                 </div>
-              )}
+                
+                <div className="bg-red-50/50 px-8 py-4 flex items-center justify-center gap-6 border-t border-red-50">
+                  <button className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-red-400 hover:text-red-600 transition-colors">
+                    <Download className="w-4 h-4" />
+                    Download
+                  </button>
+                  <button className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-red-400 hover:text-red-600 transition-colors">
+                    <Copy className="w-4 h-4" />
+                    Copy
+                  </button>
+                </div>
+              </div>
             </div>
-            
-            <h1 className="text-4xl md:text-6xl font-black italic tracking-tighter text-red-700 font-bebas uppercase leading-none flex flex-wrap items-center justify-center gap-4">
-              <div className="flex items-center gap-3">
-                <div className="relative w-10 h-6 md:w-16 md:h-10 overflow-hidden rounded shadow-sm">
-                  <Image src={getTeamFlag(match.teamA)} alt={match.teamA} fill className="object-cover" />
-                </div>
-                {match.teamA}
-              </div>
-              <span className="text-red-600 italic">VS</span>
-              <div className="flex items-center gap-3">
-                {match.teamB}
-                <div className="relative w-10 h-6 md:w-16 md:h-10 overflow-hidden rounded shadow-sm">
-                  <Image src={getTeamFlag(match.teamB)} alt={match.teamB} fill className="object-cover" />
+          ) : (
+            <div className="flex flex-col items-center gap-6">
+              <div className="flex flex-col items-center gap-2">
+                <div className={`px-5 py-2 rounded-full text-xs font-black uppercase tracking-widest border shadow-sm ${
+                  match.status === 'live' ? 'bg-red-600 text-white border-red-600 animate-pulse' :
+                  'bg-white text-red-300 border-red-50'
+                }`}>
+                  {match.status}
                 </div>
               </div>
-            </h1>
-
-            {isLocked && match.status !== 'completed' && (
-              <div className="px-4 py-2 bg-red-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg animate-bounce">
-                Predictions Locked
-              </div>
-            )}
-
-            {isAdmin && (
-              <div className="px-4 py-2 bg-yellow-400 text-white text-[10px] font-black uppercase tracking-widest rounded-lg border border-yellow-500 shadow-sm">
-                Admin View Only
-              </div>
-            )}
-          </div>
+              
+              <h1 className="text-4xl md:text-6xl font-black italic tracking-[0.1em] text-red-700 font-bebas uppercase leading-none flex flex-wrap items-center justify-center gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="relative w-10 h-6 md:w-16 md:h-10 overflow-hidden rounded shadow-sm">
+                    <Image src={getTeamFlag(match.teamA)} alt={match.teamA} fill className="object-cover" />
+                  </div>
+                  {match.teamA}
+                </div>
+                <span className="text-red-600 italic">VS</span>
+                <div className="flex items-center gap-3">
+                  {match.teamB}
+                  <div className="relative w-10 h-6 md:w-16 md:h-10 overflow-hidden rounded shadow-sm">
+                    <Image src={getTeamFlag(match.teamB)} alt={match.teamB} fill className="object-cover" />
+                  </div>
+                </div>
+              </h1>
+            </div>
+          )}
         </div>
 
         <div className="p-6 md:p-12 space-y-12">
           {/* Winner Prediction */}
           <section>
-            <h2 className="text-xl font-black italic tracking-[0.05em] text-red-700 font-bebas mb-6 uppercase flex items-center gap-3">
+            <h2 className="text-xl font-black italic tracking-[0.1em] text-red-700 font-bebas mb-6 uppercase flex items-center gap-3">
               <Target className="w-5 h-5 text-red-600" />
               Who Wins? <span className="text-xs text-red-400 normal-case font-bold ml-auto tracking-normal">(2 Points)</span>
             </h2>
@@ -235,7 +244,7 @@ export default function PredictPage({
 
           {/* Goals Prediction */}
           <section>
-            <h2 className="text-xl font-black italic tracking-[0.05em] text-red-700 font-bebas mb-6 uppercase flex items-center gap-3">
+            <h2 className="text-xl font-black italic tracking-[0.1em] text-red-700 font-bebas mb-6 uppercase flex items-center gap-3">
               <Trophy className="w-5 h-5 text-red-600" />
               Total Goals? <span className="text-xs text-red-400 normal-case font-bold ml-auto tracking-normal">(1 Point)</span>
             </h2>

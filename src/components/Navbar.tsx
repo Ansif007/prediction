@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, signOut, User } from "firebase/auth";
 import { useEffect, useState } from "react";
-import { LayoutDashboard, Trophy, LogOut, User as UserIcon, Home, Dribbble as Football, Menu, X, ShieldCheck } from "lucide-react";
+import { LayoutDashboard, Trophy, LogOut, User as UserIcon, Home, CircleDot as Football, Menu, X, ShieldCheck } from "lucide-react";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useToast } from "./Toast";

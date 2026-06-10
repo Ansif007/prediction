@@ -83,7 +83,7 @@ export default function Home() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="text-5xl md:text-8xl font-black italic tracking-[0.05em] leading-[0.9] md:leading-none font-bebas"
+            className="text-5xl md:text-8xl font-black italic tracking-[0.1em] leading-[0.9] md:leading-none font-bebas uppercase"
           >
             MRF STAFF RECREATION CLUB <br />
             <span className="text-white underline decoration-red-600 decoration-4 md:decoration-8 underline-offset-4 md:underline-offset-8">KOTTAYAM</span>
