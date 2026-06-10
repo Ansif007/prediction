@@ -11,7 +11,8 @@ import {
 import { db, auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trophy, ArrowLeft, Target, CheckCircle2, Star, CircleDot as Football, Download, Copy } from "lucide-react";
+import { Trophy, ArrowLeft, Target, CheckCircle2, Star, Download, Copy } from "lucide-react";
+import { FootballIcon as Football } from "@/components/FootballIcon";
 import Link from "next/link";
 import Image from "next/image";
 import { Match } from "@/types";

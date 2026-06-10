@@ -4,18 +4,20 @@ import { useState, useEffect } from "react";
 import { signInWithPopup, User, onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc, setDoc, collection, getDocs, query, limit } from "firebase/firestore";
 import { auth, googleProvider, db } from "@/lib/firebase";
-import { motion } from "framer-motion";
-import { Trophy, Users, ArrowRight, Zap, Target, Globe, Bell, Calendar } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Trophy, Users, ArrowRight, Zap, Target, Globe, Bell, Calendar, Play, X } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useToast } from "@/components/Toast";
 import { Notice } from "@/types";
+import { FootballIcon as Football } from "@/components/FootballIcon";
 
 export default function Home() {
   const { showToast } = useToast();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [notices, setNotices] = useState<Notice[]>([]);
+  const [showTrailer, setShowTrailer] = useState(false);
 
   useEffect(() => {
     const fetchNotices = async () => {
@@ -64,74 +66,149 @@ export default function Home() {
   if (loading) return null;
 
   return (
-    <main className="relative min-h-[calc(100vh-60px)] md:min-h-[calc(100vh-80px)] overflow-hidden">
+    <main className="relative min-h-[calc(100vh-60px)] md:min-h-[calc(100vh-80px)] overflow-hidden bg-white">
       {/* Hero Section with Image Background */}
-      <div className="relative min-h-[90vh] md:h-[85vh] flex items-center justify-center text-white pt-10 pb-20 md:py-0">
+      <div className="relative min-h-[95vh] flex items-center justify-center text-white pt-10 pb-20 overflow-hidden">
         <div className="absolute inset-0 z-0">
           <Image
             src="https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&q=80&w=1200"
-            alt="World Cup Background"
+            alt="World Cup 2026 Stadium"
             fill
-            className="object-cover"
+            className="object-cover scale-110 md:scale-100"
             priority
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-red-900/70 via-red-900/50 to-white" />
+          <div className="absolute inset-0 bg-gradient-to-b from-red-900/80 via-red-900/40 to-white" />
+          
+          {/* Animated Background Elements */}
+          <motion.div 
+            animate={{ 
+              rotate: 360,
+              scale: [1, 1.1, 1],
+            }}
+            transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+            className="absolute -top-20 -right-20 w-64 h-64 bg-red-600/20 rounded-full blur-3xl"
+          />
+          <motion.div 
+            animate={{ 
+              rotate: -360,
+              scale: [1, 1.2, 1],
+            }}
+            transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
+            className="absolute -bottom-20 -left-20 w-96 h-96 bg-red-400/10 rounded-full blur-3xl"
+          />
         </div>
 
-        <div className="relative z-10 max-w-5xl px-6 text-center space-y-6 md:space-y-8">
-          <motion.h1
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="text-5xl md:text-8xl font-black italic tracking-[0.1em] leading-[0.9] md:leading-none font-bebas uppercase"
-          >
-            MRF STAFF RECREATION CLUB <br />
-            <span className="text-white underline decoration-red-600 decoration-4 md:decoration-8 underline-offset-4 md:underline-offset-8">KOTTAYAM</span>
-          </motion.h1>
+        <div className="relative z-10 max-w-5xl px-6 text-center space-y-8 md:space-y-12">
+          <div className="space-y-4">
+            <motion.h1
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="text-6xl md:text-9xl font-black italic tracking-[0.1em] leading-[0.85] md:leading-none font-bebas uppercase drop-shadow-2xl"
+            >
+              MRF STAFF <br />
+              RECREATION CLUB <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-red-200 to-white underline decoration-red-600 decoration-8 underline-offset-8">KOTTAYAM</span>
+            </motion.h1>
 
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.4 }}
-            className="text-base md:text-xl font-bold text-white/90 max-w-2xl mx-auto drop-shadow-lg px-4"
-          >
-            Predict results, earn points, and compete with your colleagues. 
-            The beautiful game meets office glory.
-          </motion.p>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.4 }}
+              className="flex flex-col items-center gap-2"
+            >
+              <span className="text-xl md:text-3xl font-black italic uppercase tracking-[0.2em] text-white font-bebas">
+                The Greatest Show on Earth
+              </span>
+              <div className="w-24 h-1 bg-red-600 rounded-full" />
+            </motion.div>
+          </div>
 
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6 }}
-            className="flex flex-col sm:flex-row items-center justify-center gap-3 md:gap-4 pt-4 md:pt-6 w-full max-w-sm mx-auto sm:max-w-none"
+            transition={{ delay: 0.5 }}
+            className="flex flex-col items-center gap-6"
           >
-            {user ? (
-              <Link
-                href="/dashboard"
-                className="group w-full sm:w-auto flex items-center justify-center gap-3 px-8 md:px-10 py-4 md:py-5 bg-red-600 text-white font-black uppercase tracking-widest rounded-2xl hover:bg-red-700 transition-all hover:scale-105 shadow-2xl shadow-red-500/40 active:scale-95 text-sm md:text-base"
-              >
-                Go to Arena
-                <ArrowRight className="w-4 h-4 md:w-5 md:h-5 group-hover:translate-x-1 transition-transform" />
-              </Link>
-            ) : (
-              <button
-                onClick={login}
-                className="w-full sm:w-auto flex items-center justify-center gap-3 px-8 md:px-10 py-4 md:py-5 bg-white text-red-600 font-black uppercase tracking-widest rounded-2xl hover:bg-red-50 transition-all hover:scale-105 shadow-2xl shadow-red-100 active:scale-95 text-sm md:text-base"
-              >
-                <Image src="https://www.google.com/favicon.ico" alt="Google" width={20} height={20} className="md:w-5 md:h-5" />
-                Sign in with Google
-              </button>
-            )}
-            
-            <Link
-              href="/leaderboard"
-              className="w-full sm:w-auto px-8 md:px-10 py-4 md:py-5 bg-white/10 backdrop-blur-md border-2 border-white/30 text-white font-black uppercase tracking-widest rounded-2xl hover:bg-white/20 transition-all text-sm md:text-base"
+            {/* Trailer Trigger */}
+            <button 
+              onClick={() => setShowTrailer(true)}
+              className="flex items-center gap-4 px-8 py-4 bg-white/10 backdrop-blur-md border border-white/30 rounded-[2rem] hover:bg-white/20 transition-all group active:scale-95"
             >
-              Leaderboard
-            </Link>
+              <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-red-600 shadow-xl group-hover:scale-110 transition-transform">
+                <Play className="w-6 h-6 fill-red-600" />
+              </div>
+              <div className="text-left">
+                <div className="text-[10px] font-black uppercase tracking-widest text-red-100">Watch the Trailer</div>
+                <div className="text-sm font-bold uppercase tracking-wider">FIFA World Cup 2026</div>
+              </div>
+            </button>
+
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full max-w-sm mx-auto sm:max-w-none">
+              {user ? (
+                <Link
+                  href="/dashboard"
+                  className="group w-full sm:w-auto flex items-center justify-center gap-3 px-10 py-5 bg-red-600 text-white font-black uppercase tracking-[0.2em] rounded-2xl hover:bg-red-700 transition-all hover:scale-105 shadow-2xl shadow-red-500/40 active:scale-95 text-base font-bebas italic"
+                >
+                  Enter the Arena
+                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                </Link>
+              ) : (
+                <button
+                  onClick={login}
+                  className="w-full sm:w-auto flex items-center justify-center gap-3 px-10 py-5 bg-white text-red-600 font-black uppercase tracking-[0.2em] rounded-2xl hover:bg-red-50 transition-all hover:scale-105 shadow-2xl shadow-red-100 active:scale-95 text-base font-bebas italic"
+                >
+                  <Image src="https://www.google.com/favicon.ico" alt="Google" width={20} height={20} />
+                  Sign in to Play
+                </button>
+              )}
+              
+              <Link
+                href="/leaderboard"
+                className="w-full sm:w-auto px-10 py-5 bg-white/10 backdrop-blur-md border-2 border-white/30 text-white font-black uppercase tracking-[0.2em] rounded-2xl hover:bg-white/20 transition-all text-base font-bebas italic"
+              >
+                Leaderboard
+              </Link>
+            </div>
           </motion.div>
         </div>
       </div>
+
+      {/* Video Modal */}
+      <AnimatePresence>
+        {showTrailer && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4 md:p-10 backdrop-blur-xl"
+            onClick={() => setShowTrailer(false)}
+          >
+            <button 
+              className="absolute top-6 right-6 text-white/50 hover:text-white transition-colors"
+              onClick={() => setShowTrailer(false)}
+            >
+              <X className="w-10 h-10" />
+            </button>
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              className="relative w-full max-w-5xl aspect-video rounded-[2rem] overflow-hidden shadow-2xl border border-white/10"
+              onClick={e => e.stopPropagation()}
+            >
+              <iframe 
+                width="100%" 
+                height="100%" 
+                src="https://www.youtube.com/embed/P_fB70-H13I?autoplay=1" 
+                title="FIFA World Cup 26 Trailer" 
+                frameBorder="0" 
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                allowFullScreen
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Notice Board Section */}
       {notices.length > 0 && (
@@ -270,6 +347,20 @@ export default function Home() {
           </div>
         </motion.div>
       </div>
+      {/* Footer Branding */}
+      <footer className="relative z-20 py-12 text-center border-t border-red-50">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="flex flex-col items-center gap-2">
+            <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center border border-red-100 mb-2">
+              <Football className="w-6 h-6 text-red-600" />
+            </div>
+            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-red-300">
+              CREATED BY <span className="text-red-600">ANSIF</span>
+            </p>
+            <div className="w-12 h-0.5 bg-red-100 rounded-full mt-1" />
+          </div>
+        </div>
+      </footer>
     </main>
   );
 }
