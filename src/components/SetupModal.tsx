@@ -7,6 +7,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { motion, AnimatePresence } from "framer-motion";
 import { ShieldCheck, User as UserIcon, Send, Building2 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
+import { DEPARTMENT_OTHER } from "@/lib/utils";
 
 export default function SetupModal() {
   const [isOpen, setIsOpen] = useState(false);
@@ -15,8 +16,12 @@ export default function SetupModal() {
   const [department, setDepartment] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const departments = [
-    "TUBE", "TYRE", "MIXING", "PCTR", "OTHER (SAFETY, SECURITY, HR)"
+  const departments: { value: string; label: string }[] = [
+    { value: "TUBE", label: "TUBE" },
+    { value: "TYRE", label: "TYRE" },
+    { value: "MIXING", label: "MIXING" },
+    { value: "PCTR", label: "PCTR" },
+    { value: DEPARTMENT_OTHER, label: "others" },
   ];
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
@@ -189,7 +194,7 @@ export default function SetupModal() {
                   >
                     <option value="" disabled>Select Group</option>
                     {departments.map(dept => (
-                      <option key={dept} value={dept}>{dept}</option>
+                      <option key={dept.value} value={dept.value}>{dept.label}</option>
                     ))}
                   </select>
                   <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-red-300">

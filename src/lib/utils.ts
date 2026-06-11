@@ -1,5 +1,22 @@
 import { Timestamp } from "firebase/firestore";
 
+export const DEPARTMENT_OTHER = "others";
+const DEPARTMENT_OTHER_LEGACY = "OTHER (SAFETY, SECURITY, HR)";
+
+/** Normalizes department for grouping; maps legacy value to "others". */
+export function normalizeDepartment(department?: string | null): string {
+  if (!department || department === DEPARTMENT_OTHER_LEGACY) {
+    return DEPARTMENT_OTHER;
+  }
+  return department;
+}
+
+/** Formats department for display across the app. */
+export function formatDepartmentDisplay(department?: string | null): string {
+  if (!department) return "";
+  return normalizeDepartment(department);
+}
+
 /**
  * Formats a Firestore Timestamp or Date/string into a readable kickoff string.
  */

@@ -1,22 +1,45 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, getDocs, query } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { collection, getDocs, query, doc, getDoc } from "firebase/firestore";
+import { db, auth } from "@/lib/firebase";
+import { onAuthStateChanged, User } from "firebase/auth";
 import { motion } from "framer-motion";
-import { Trophy, Medal, Award, User as UserIcon, Star, TrendingUp, Users as UsersIcon, Building2 } from "lucide-react";
+import { Trophy, Medal, Award, User as UserIcon, Star, TrendingUp, Users as UsersIcon, Building2, EyeOff } from "lucide-react";
 import { UserData, DeptData } from "@/types";
+import { normalizeDepartment, formatDepartmentDisplay } from "@/lib/utils";
+import { useMobileBackToHome } from "@/hooks/useMobileBackToHome";
 
 export default function Leaderboard() {
+  useMobileBackToHome();
   const [users, setUsers] = useState<UserData[]>([]);
   const [depts, setDepts] = useState<DeptData[]>([]);
   const [view, setView] = useState<'individual' | 'department'>('individual');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isLeaderboardEnabled, setIsLeaderboardEnabled] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     const loadLeaderboard = async () => {
       try {
+        const settingsSnap = await getDoc(doc(db, "config", "app_settings"));
+        setIsLeaderboardEnabled(
+          settingsSnap.exists() ? settingsSnap.data().isLeaderboardEnabled !== false : true
+        );
+
+        const authUser = await new Promise<User | null>((resolve) => {
+          const unsubscribe = onAuthStateChanged(auth, (user) => {
+            unsubscribe();
+            resolve(user);
+          });
+        });
+
+        if (authUser) {
+          const userDoc = await getDoc(doc(db, "users", authUser.uid));
+          setIsAdmin(userDoc.exists() && userDoc.data().role === "admin");
+        }
+
         // Fetch all users to avoid index requirement for small internal app
         const q = query(collection(db, "users"));
         const snapshot = await getDocs(q);
@@ -35,7 +58,7 @@ export default function Leaderboard() {
         // Calculate Department Leaderboard
         const deptMap: Record<string, { totalPoints: number; userCount: number }> = {};
         allUsers.forEach(u => {
-          const dept = u.department || "OTHER (SAFETY, SECURITY, HR)";
+          const dept = normalizeDepartment(u.department);
           if (!deptMap[dept]) {
             deptMap[dept] = { totalPoints: 0, userCount: 0 };
           }
@@ -94,24 +117,37 @@ export default function Leaderboard() {
     );
   }
 
+  if (!isLeaderboardEnabled && !isAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] px-6 text-center">
+        <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mb-6">
+          <EyeOff className="w-8 h-8 text-red-400" />
+        </div>
+        <p className="text-sm md:text-base text-red-500 font-bold max-w-sm mx-auto uppercase tracking-wider leading-relaxed">
+          Leaderboard will be shown shortly
+        </p>
+      </div>
+    );
+  }
+
   const topThree = users.slice(0, 3);
   const theRest = users.slice(3);
 
   return (
     <main className="max-w-5xl mx-auto px-4 md:px-6 py-8 md:py-12 overflow-visible">
-      <header className="mb-8 md:mb-16 text-center space-y-4">
+      <header className="mb-10 md:mb-20 text-center space-y-5 md:space-y-6">
         <div className="inline-flex p-3 md:p-4 rounded-2xl md:rounded-3xl bg-red-600 text-white shadow-xl shadow-red-200 mb-2 md:mb-4 rotate-3">
           <Trophy className="w-8 h-8 md:w-10 md:h-10" />
         </div>
-        <h1 className="text-4xl md:text-6xl font-black italic tracking-[0.1em] text-red-700 font-bebas uppercase leading-[1.1] overflow-visible\">
+        <h1 className="text-4xl md:text-6xl font-black italic tracking-[0.1em] text-red-700 font-bebas uppercase leading-relaxed md:leading-loose">
           THE <span className="text-red-600">HALL</span> OF FAME
         </h1>
-        <p className="text-xs md:text-sm text-red-400 font-bold max-w-md mx-auto uppercase tracking-wider px-4">
+        <p className="text-xs md:text-sm text-red-400 font-bold max-w-md mx-auto uppercase tracking-wider leading-relaxed px-4">
           Tracking the best predictors across the company.
         </p>
 
         {/* View Switcher */}
-        <div className="flex items-center justify-center gap-2 mt-8">
+        <div className="flex items-center justify-center gap-3 mt-10">
           <button 
             onClick={() => setView('individual')}
             className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-black italic uppercase tracking-tighter font-bebas transition-all ${
@@ -140,7 +176,7 @@ export default function Leaderboard() {
       {view === 'individual' ? (
         <>
           {/* Top 3 Podium Visual */}
-          <div className="flex flex-col md:flex-row gap-4 md:gap-8 mb-12 md:mb-16 items-center md:items-end pt-4 md:pt-10">
+          <div className="flex flex-col md:flex-row gap-6 md:gap-10 mb-14 md:mb-20 items-center md:items-end pt-6 md:pt-12">
             {/* Mobile View: Ranks top 3 in order 1, 2, 3. Desktop: 2, 1, 3 */}
             {/* Gold - Rank 1 */}
             {topThree[0] && (
@@ -179,14 +215,14 @@ export default function Leaderboard() {
           </div>
 
           {/* Remaining List */}
-          <div className="space-y-3 md:space-y-4 max-w-3xl mx-auto pb-10">
+          <div className="space-y-4 md:space-y-5 max-w-3xl mx-auto pb-12">
             {theRest.map((user, index) => (
               <motion.div
                 key={user.id}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
-                className="flex items-center justify-between p-4 md:p-5 rounded-2xl md:rounded-3xl bg-white border border-red-50 card-shadow hover:border-red-400 transition-all"
+                className="flex items-center justify-between p-5 md:p-6 rounded-2xl md:rounded-3xl bg-white border border-red-50 card-shadow hover:border-red-400 transition-all"
               >
                 <div className="flex items-center gap-4 md:gap-6">
                   <span className="text-xl md:text-2xl font-black italic text-red-100 font-bebas w-6 md:w-8">
@@ -197,15 +233,15 @@ export default function Leaderboard() {
                       <UserIcon className="w-5 h-5 md:w-6 md:h-6 text-red-400" />
                     </div>
                     <div className="min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <h3 className="font-black italic uppercase tracking-tighter text-red-700 font-bebas text-lg md:text-xl leading-none truncate">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-black italic uppercase tracking-wide text-red-700 font-bebas text-lg md:text-xl leading-relaxed truncate">
                           {user.name}
                         </h3>
                       </div>
                       <div className="flex items-center gap-1.5">
                         {user.department && (
-                          <span className="text-[8px] md:text-[10px] font-black text-red-300 uppercase tracking-widest">
-                            {user.department}
+                          <span className="text-[8px] md:text-[10px] font-black text-red-300 uppercase tracking-widest leading-relaxed">
+                            {formatDepartmentDisplay(user.department)}
                           </span>
                         )}
                       </div>
@@ -229,8 +265,8 @@ export default function Leaderboard() {
           </div>
         </>
       ) : (
-        <div className="max-w-4xl mx-auto pt-8">
-          <div className="grid gap-4 md:gap-6">
+        <div className="max-w-4xl mx-auto pt-10">
+          <div className="grid gap-5 md:gap-8">
             {depts.map((dept, index) => (
               <motion.div
                 key={dept.name}
@@ -260,11 +296,11 @@ export default function Leaderboard() {
                       <span className={`text-xl md:text-2xl font-black italic font-bebas ${index === 0 ? 'text-red-100' : 'text-red-200'}`}>
                         #{index + 1}
                       </span>
-                      <h2 className="text-2xl md:text-4xl font-black italic uppercase tracking-tighter font-bebas leading-none">
-                        {dept.name}
+                      <h2 className="text-2xl md:text-4xl font-black italic uppercase tracking-wide font-bebas leading-relaxed">
+                        {formatDepartmentDisplay(dept.name)}
                       </h2>
                     </div>
-                    <div className="flex items-center gap-4 mt-2">
+                    <div className="flex items-center gap-4 mt-3">
                       <div className="flex items-center gap-1.5">
                         <UsersIcon className="w-3.5 h-3.5 opacity-60" />
                         <span className="text-[10px] md:text-xs font-bold uppercase tracking-widest opacity-80">
@@ -316,12 +352,12 @@ function PodiumCard({ user, rank, icon, height, isGold, delay, mobileOrder }: { 
         
         <div className={`flex-1 md:w-full md:mt-0 ${isGold ? 'md:bg-red-600' : 'md:bg-white md:border md:border-red-50'} md:rounded-t-[3rem] md:p-8 text-left md:text-center md:shadow-2xl flex flex-col md:items-center justify-center gap-1 md:gap-2`}>
           <div className="flex flex-col md:items-center gap-0.5">
-            <h3 className={`font-black italic uppercase tracking-tighter font-bebas text-lg md:text-2xl truncate w-full ${isGold ? 'text-white' : 'text-red-700'}`}>
+            <h3 className={`font-black italic uppercase tracking-wide font-bebas text-lg md:text-2xl leading-relaxed truncate w-full ${isGold ? 'text-white' : 'text-red-700'}`}>
               {user.name}
             </h3>
             {user.department && (
-              <span className={`text-[8px] md:text-[10px] font-black uppercase tracking-[0.2em] ${isGold ? 'text-red-100/60' : 'text-red-300'}`}>
-                {user.department}
+              <span className={`text-[8px] md:text-[10px] font-black uppercase tracking-[0.2em] leading-relaxed ${isGold ? 'text-red-100/60' : 'text-red-300'}`}>
+                {formatDepartmentDisplay(user.department)}
               </span>
             )}
           </div>

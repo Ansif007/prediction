@@ -28,9 +28,11 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { Match } from "@/types";
 import { getTeamFlag } from "@/lib/utils";
 import { useToast } from "@/components/Toast";
+import { useMobileBackToHome } from "@/hooks/useMobileBackToHome";
 
 export default function PredictPage({
   params,
@@ -38,6 +40,8 @@ export default function PredictPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  useMobileBackToHome();
+  const router = useRouter();
   const { showToast } = useToast();
   const [match, setMatch] = useState<Match | null>(null);
   const [loading, setLoading] = useState(true);
@@ -111,7 +115,7 @@ export default function PredictPage({
       });
       showToast("Battle Prediction Locked!", "success");
       setShowAddSuccess(true);
-      setTimeout(() => setShowAddSuccess(false), 3000);
+      setTimeout(() => router.push("/dashboard"), 1200);
     } catch (error) {
       console.error("Error saving prediction:", error);
       showToast("Deployment Failed. Try again.", "error");

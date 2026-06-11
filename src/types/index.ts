@@ -56,3 +56,7 @@ export interface Notice {
   createdAt: string;
   type: 'info' | 'alert' | 'update';
 }
+
+export interface AppSettings {
+  isLeaderboardEnabled: boolean;
+}

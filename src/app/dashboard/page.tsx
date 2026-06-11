@@ -15,18 +15,21 @@ import { onAuthStateChanged, User } from "firebase/auth";
 import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { Calendar, ChevronRight, Trophy, Star } from "lucide-react";
+import { Calendar, ChevronRight, Trophy, Star, CheckCircle2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Match } from "@/types";
 import { formatKickoff, getTeamFlag } from "@/lib/utils";
+import { useMobileBackToHome } from "@/hooks/useMobileBackToHome";
 
 export default function Dashboard() {
+  useMobileBackToHome();
   const router = useRouter();
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const [userRank, setUserRank] = useState<number | string>("--");
   const [userPoints, setUserPoints] = useState<number>(0);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [predictedMatchIds, setPredictedMatchIds] = useState<Set<string>>(new Set());
   const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
@@ -60,8 +63,11 @@ export default function Dashboard() {
         });
         setMatches(matchList);
 
-        // Fetch User Rank and Points
         if (user) {
+          const predsSnap = await getDocs(query(collection(db, "predictions"), where("uid", "==", user.uid)));
+          setPredictedMatchIds(new Set(predsSnap.docs.map((d) => d.data().matchId as string)));
+
+          // Fetch User Rank and Points
           const usersSnap = await getDocs(query(collection(db, "users"), where("role", "==", "user")));
           const allUsers = usersSnap.docs.map(docItem => ({
             id: docItem.id,
@@ -75,6 +81,8 @@ export default function Dashboard() {
             const rank = allUsers.findIndex(u => u.points <= currentUserData.points) + 1;
             setUserRank(rank);
           }
+        } else {
+          setPredictedMatchIds(new Set());
         }
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -101,8 +109,8 @@ export default function Dashboard() {
   return (
     <main className="max-w-6xl mx-auto px-4 md:px-6 py-8 md:py-12 overflow-visible">
       <header className="mb-8 md:mb-16 flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div className="space-y-2 md:space-y-4 text-center md:text-left">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-50 text-red-600 text-[10px] md:text-xs font-black uppercase tracking-widest mx-auto md:mx-0">
+        <div className="space-y-3 md:space-y-5 text-center md:text-left">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-50 text-red-600 text-[10px] md:text-xs font-black uppercase tracking-widest leading-relaxed mx-auto md:mx-0">
             <div className="relative w-3 h-3">
               <Image 
                 src="/football.png" 
@@ -113,16 +121,18 @@ export default function Dashboard() {
             </div>
             Live Arena
           </div>
-          <h1 className="text-4xl md:text-6xl font-black italic tracking-[0.1em] text-red-700 font-bebas leading-[1.1] uppercase overflow-visible">
+          <h1 className="text-4xl md:text-6xl font-black italic tracking-[0.1em] text-red-700 font-bebas leading-relaxed md:leading-loose uppercase">
             Battle Arena
           </h1>
           {isAdmin ? (
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-50 text-yellow-700 text-[10px] font-black uppercase tracking-widest mx-auto md:mx-0 border border-yellow-100">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-50 text-yellow-700 text-[10px] font-black uppercase tracking-widest leading-relaxed mx-auto md:mx-0 border border-yellow-100">
               <Star className="w-3 h-3 fill-yellow-700" />
               Admin View Only
             </div>
           ) : (
-            <p className="text-sm md:text-base text-red-400 font-medium px-4 md:px-0">Select a battle to lock in your prediction.</p>
+            <p className="text-sm md:text-base text-red-400 font-medium leading-relaxed tracking-wide px-4 md:px-0 max-w-md mx-auto md:mx-0">
+              Select a battle to lock in your prediction.
+            </p>
           )}
         </div>
 
@@ -132,8 +142,8 @@ export default function Dashboard() {
               <Star className="w-4 h-4 md:w-5 md:h-5 text-red-600" />
             </div>
             <div>
-              <div className="text-[8px] md:text-[10px] font-bold text-red-300 uppercase tracking-widest leading-none mb-1">Your Points</div>
-              <div className="text-lg md:text-xl font-black text-red-700 leading-none font-bebas">{userPoints} PTS</div>
+              <div className="text-[8px] md:text-[10px] font-bold text-red-300 uppercase tracking-widest leading-relaxed mb-1">Your Points</div>
+              <div className="text-lg md:text-xl font-black text-red-700 leading-relaxed font-bebas">{userPoints} PTS</div>
             </div>
           </div>
           <div className="p-3 md:p-4 bg-red-50 rounded-2xl border border-red-100 flex items-center gap-3 md:gap-4">
@@ -141,8 +151,8 @@ export default function Dashboard() {
               <Trophy className="w-4 h-4 md:w-5 md:h-5 text-yellow-600" />
             </div>
             <div>
-              <div className="text-[8px] md:text-[10px] font-bold text-red-300 uppercase tracking-widest leading-none mb-1">Your Rank</div>
-              <div className="text-lg md:text-xl font-black text-red-700 leading-none font-bebas">#{userRank}</div>
+              <div className="text-[8px] md:text-[10px] font-bold text-red-300 uppercase tracking-widest leading-relaxed mb-1">Your Rank</div>
+              <div className="text-lg md:text-xl font-black text-red-700 leading-relaxed font-bebas">#{userRank}</div>
             </div>
           </div>
         </div>
@@ -151,7 +161,11 @@ export default function Dashboard() {
       <div className="grid gap-4 md:gap-6">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-black uppercase tracking-widest text-red-900 font-bebas italic">Active Battles</h3>
-          <div className="flex gap-4">
+          <div className="flex flex-wrap gap-3 md:gap-4 justify-end">
+            <span className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-600 uppercase tracking-wider">
+              <CheckCircle2 className="w-3 h-3" />
+              Predicted
+            </span>
             <span className="flex items-center gap-1.5 text-[10px] font-bold text-red-400 uppercase tracking-wider">
               <span className="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse" />
               Live
@@ -175,7 +189,7 @@ export default function Dashboard() {
                 match.status === 'completed' ? 'opacity-90' : ''
               }`}
             >
-              <MatchCardContent match={match} currentTime={currentTime} />
+              <MatchCardContent match={match} currentTime={currentTime} isPredicted={predictedMatchIds.has(match.id)} />
             </Link>
           </motion.div>
         ))}
@@ -194,13 +208,19 @@ export default function Dashboard() {
   );
 }
 
-function MatchCardContent({ match, currentTime }: { match: Match, currentTime: Date }) {
+function MatchCardContent({ match, currentTime, isPredicted }: { match: Match, currentTime: Date, isPredicted: boolean }) {
   return (
     <div className="flex flex-col lg:flex-row items-center gap-4 md:gap-8">
       {/* Time & Status */}
       <div className="flex lg:flex-col items-center lg:items-start justify-between w-full lg:w-auto gap-2 lg:min-w-[160px]">
-        <div className="flex flex-col lg:items-start gap-2">
-          <div className={`px-3 py-1 md:px-4 md:py-1.5 rounded-full text-[8px] md:text-[10px] font-black uppercase tracking-[0.15em] ${
+        <div className="flex flex-col lg:items-start gap-2.5">
+          {isPredicted && (
+            <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 text-[8px] md:text-[10px] font-black uppercase tracking-widest leading-relaxed">
+              <CheckCircle2 className="w-3 h-3 shrink-0" />
+              Predicted
+            </div>
+          )}
+          <div className={`px-3 py-1 md:px-4 md:py-1.5 rounded-full text-[8px] md:text-[10px] font-black uppercase tracking-[0.15em] leading-relaxed ${
             match.status === 'live' ? 'bg-red-600 text-white animate-pulse' : 
             match.status === 'completed' ? 'bg-green-600 text-white shadow-lg shadow-green-100' :
             'bg-red-50 text-red-400 border border-red-100'
@@ -214,7 +234,7 @@ function MatchCardContent({ match, currentTime }: { match: Match, currentTime: D
             const isLocked = currentTime > new Date(kickoff.getTime() - 1 * 60000);
             if (isLocked && match.status === 'upcoming') {
               return (
-                <div className="px-3 py-1 rounded-full bg-red-100 text-red-600 text-[8px] font-black uppercase tracking-widest border border-red-200">
+                <div className="px-3 py-1 rounded-full bg-red-100 text-red-600 text-[8px] font-black uppercase tracking-widest leading-relaxed border border-red-200">
                   Locked
                 </div>
               );
@@ -223,21 +243,21 @@ function MatchCardContent({ match, currentTime }: { match: Match, currentTime: D
           })()}
 
           {match.status === 'completed' && match.totalGoalsResult && (
-            <div className="flex flex-col gap-1">
-              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-50 text-red-700 border border-red-100 text-[8px] font-black uppercase tracking-widest">
-                <Trophy className="w-2.5 h-2.5" />
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-50 text-red-700 border border-red-100 text-[8px] font-black uppercase tracking-widest leading-relaxed">
+                <Trophy className="w-2.5 h-2.5 shrink-0" />
                 Goals: {match.totalGoalsResult}
               </div>
               {match.result && (
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-yellow-400 text-white shadow-md text-[8px] font-black uppercase tracking-widest">
-                  <Star className="w-2.5 h-2.5 fill-white" />
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-yellow-400 text-white shadow-md text-[8px] font-black uppercase tracking-widest leading-relaxed">
+                  <Star className="w-2.5 h-2.5 fill-white shrink-0" />
                   Winner: {match.result}
                 </div>
               )}
             </div>
           )}
         </div>
-        <div className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm font-bold text-red-300">
+        <div className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm font-bold text-red-300 leading-relaxed tracking-wide">
           <Calendar className="w-3 h-3 md:w-4 md:h-4" />
           {formatKickoff(match.kickoffTime)}
         </div>
@@ -255,7 +275,7 @@ function MatchCardContent({ match, currentTime }: { match: Match, currentTime: D
               className="object-cover"
             />
           </div>
-          <span className="text-lg md:text-4xl font-black italic uppercase tracking-[-0.05em] text-red-700 font-bebas truncate overflow-visible leading-[1.15]">
+          <span className="text-lg md:text-4xl font-black italic uppercase tracking-wide text-red-700 font-bebas leading-relaxed md:leading-loose break-words min-w-0 max-w-full">
             {match.teamA}
           </span>
         </div>
@@ -276,7 +296,7 @@ function MatchCardContent({ match, currentTime }: { match: Match, currentTime: D
               className="object-cover"
             />
           </div>
-          <span className="text-lg md:text-4xl font-black italic uppercase tracking-[-0.05em] text-red-700 font-bebas truncate overflow-visible leading-[1.15] md:order-2 order-2">
+          <span className="text-lg md:text-4xl font-black italic uppercase tracking-wide text-red-700 font-bebas leading-relaxed md:leading-loose break-words min-w-0 max-w-full md:order-2 order-2">
             {match.teamB}
           </span>
         </div>

@@ -61,5 +61,11 @@ service cloud.firestore {
       allow read: if isSignedIn() || true; // Publicly readable for home page
       allow write: if isAdmin();
     }
+
+    // Global app configuration
+    match /config/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
   }
 }

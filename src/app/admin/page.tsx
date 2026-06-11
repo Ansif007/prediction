@@ -12,6 +12,7 @@ import {
   addDoc,
   deleteDoc,
   getDoc,
+  setDoc,
   Timestamp,
   writeBatch,
 } from "firebase/firestore";
@@ -26,11 +27,13 @@ import {
 import Link from "next/link";
 import * as XLSX from 'xlsx';
 import { Match, UserData, Prediction, DeptData, Notice } from "@/types";
-import { formatKickoff, WORLD_CUP_2026_TEAMS } from "@/lib/utils";
+import { formatKickoff, WORLD_CUP_2026_TEAMS, normalizeDepartment, formatDepartmentDisplay } from "@/lib/utils";
+import { useMobileBackToHome } from "@/hooks/useMobileBackToHome";
 
 type AdminTab = 'matches' | 'users' | 'predictions' | 'notices';
 
 export default function AdminPage() {
+  useMobileBackToHome();
   const [activeTab, setActiveTab] = useState<AdminTab>('matches');
   const [matches, setMatches] = useState<Match[]>([]);
   const [users, setUsers] = useState<UserData[]>([]);
@@ -44,6 +47,8 @@ export default function AdminPage() {
   const [editingUser, setEditingUser] = useState<UserData | null>(null);
   const [confirmResult, setConfirmResult] = useState<{ matchId: string, result: string, goals: string } | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [isLeaderboardEnabled, setIsLeaderboardEnabled] = useState(true);
+  const [togglingLeaderboard, setTogglingLeaderboard] = useState(false);
   
   const [globalStats, setGlobalStats] = useState({
     totalUsers: 0,
@@ -73,6 +78,13 @@ export default function AdminPage() {
       const predictionsSnap = await getDocs(collection(db, "predictions"));
       const usersSnap = await getDocs(collection(db, "users"));
       const noticesSnap = await getDocs(collection(db, "notices"));
+      const settingsSnap = await getDoc(doc(db, "config", "app_settings"));
+
+      if (settingsSnap.exists()) {
+        setIsLeaderboardEnabled(settingsSnap.data().isLeaderboardEnabled !== false);
+      } else {
+        setIsLeaderboardEnabled(true);
+      }
 
       const noticesData = noticesSnap.docs.map(docItem => ({
         id: docItem.id,
@@ -144,6 +156,24 @@ export default function AdminPage() {
     });
     return () => unsubscribe();
   }, []);
+
+  const handleLeaderboardToggle = async () => {
+    setTogglingLeaderboard(true);
+    try {
+      const newValue = !isLeaderboardEnabled;
+      await setDoc(
+        doc(db, "config", "app_settings"),
+        { isLeaderboardEnabled: newValue },
+        { merge: true }
+      );
+      setIsLeaderboardEnabled(newValue);
+    } catch (error) {
+      console.error("Error updating leaderboard visibility:", error);
+      alert("Failed to update leaderboard visibility.");
+    } finally {
+      setTogglingLeaderboard(false);
+    }
+  };
 
   const handleAddMatch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -332,7 +362,7 @@ export default function AdminPage() {
         Rank: index + 1,
         Name: u.name,
         Employee_Number: u.employeeId || 'N/A',
-        Group: u.department || 'N/A',
+        Group: u.department ? formatDepartmentDisplay(u.department) : 'N/A',
         Total_Score: u.totalPoints,
         Status: u.profileSetup ? 'Verified' : 'Pending Setup'
       }));
@@ -353,14 +383,14 @@ export default function AdminPage() {
     // 2. Department Rankings
     const deptMap: Record<string, { totalPoints: number; userCount: number }> = {};
     users.filter(u => u.role === 'user').forEach(u => {
-      const dept = u.department || "OTHER (SAFETY, SECURITY, HR)";
+      const dept = normalizeDepartment(u.department);
       if (!deptMap[dept]) deptMap[dept] = { totalPoints: 0, userCount: 0 };
       deptMap[dept].totalPoints += (u.totalPoints || 0);
       deptMap[dept].userCount += 1;
     });
 
     const departmentData = Object.entries(deptMap).map(([name, stats]) => ({
-      Group_Name: name,
+      Group_Name: formatDepartmentDisplay(name),
       Total_Points: stats.totalPoints,
       Participant_Count: stats.userCount,
       Average_Points: stats.userCount > 0 ? Number((stats.totalPoints / stats.userCount).toFixed(2)) : 0
@@ -466,11 +496,45 @@ export default function AdminPage() {
         </div>
 
         {/* Global Dashboard Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
           <StatBox icon={<Users className="w-5 h-5" />} label="Total Participants" value={globalStats.totalUsers} color="red" />
           <StatBox icon={<BarChart3 className="w-5 h-5" />} label="Total Predictions" value={globalStats.totalPredictions} color="red" />
           <StatBox icon={<Activity className="w-5 h-5" />} label="Live Battles" value={globalStats.activeMatches} color="live" />
           <StatBox icon={<LayoutGrid className="w-5 h-5" />} label="Total Battles" value={matches.length} color="red" />
+        </div>
+
+        {/* Leaderboard Visibility Toggle */}
+        <div className="mb-8 flex items-center justify-between gap-4 p-5 md:p-6 bg-white rounded-2xl border border-red-50 shadow-sm">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center shrink-0">
+              <Trophy className="w-5 h-5 text-red-600" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-black uppercase tracking-wider text-red-700 font-bebas italic leading-relaxed">
+                Enable Leaderboard Visibility
+              </p>
+              <p className="text-[10px] font-bold text-red-300 uppercase tracking-widest leading-relaxed mt-0.5">
+                {isLeaderboardEnabled ? "Visible to all participants" : "Hidden from standard users"}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={isLeaderboardEnabled}
+            aria-label="Enable Leaderboard Visibility"
+            disabled={togglingLeaderboard}
+            onClick={handleLeaderboardToggle}
+            className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2 disabled:opacity-50 ${
+              isLeaderboardEnabled ? "bg-red-600" : "bg-red-200"
+            }`}
+          >
+            <span
+              className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform ${
+                isLeaderboardEnabled ? "translate-x-6" : "translate-x-1"
+              }`}
+            />
+          </button>
         </div>
 
         {/* Tab Content */}
@@ -684,7 +748,7 @@ export default function AdminPage() {
                       <td className="px-8 py-6">
                         <div className="flex items-center gap-2">
                           <span className="px-2 py-0.5 bg-red-50 text-red-600 rounded border border-red-100 text-[10px] font-black uppercase tracking-widest">
-                            {user.department || 'GENERAL'}
+                            {user.department ? formatDepartmentDisplay(user.department) : 'GENERAL'}
                           </span>
                         </div>
                       </td>

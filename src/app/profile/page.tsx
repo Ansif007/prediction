@@ -10,6 +10,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { UserData, Match } from "@/types";
 import { useToast } from "@/components/Toast";
+import { formatDepartmentDisplay } from "@/lib/utils";
+import { useMobileBackToHome } from "@/hooks/useMobileBackToHome";
 
 interface MatchStats {
   completed: number;
@@ -19,6 +21,7 @@ interface MatchStats {
 }
 
 export default function ProfilePage() {
+  useMobileBackToHome();
   const router = useRouter();
   const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
@@ -139,7 +142,7 @@ export default function ProfilePage() {
               Official Participant
             </div>
             <h1 className="text-4xl md:text-5xl font-black italic tracking-[0.1em] text-red-700 font-bebas leading-[1.15] uppercase overflow-visible">
-              {profile.name || "USER"} <span className="text-red-600">PROFILE</span>
+              {profile.name || "USER"}
             </h1>
             <p className="text-[10px] md:text-xs text-red-400 font-bold uppercase tracking-[0.2em]">
               Manage your arena identity
@@ -188,7 +191,7 @@ export default function ProfilePage() {
             textColor="text-green-700"
           />
           <StatCard 
-            label="Upcoming" 
+            label="Pending" 
             value={stats.pending} 
             icon={<Timer className="w-4 h-4 text-yellow-600" />} 
             bgColor="bg-yellow-50" 
@@ -238,7 +241,7 @@ export default function ProfilePage() {
               <div className="relative">
                 <input 
                   type="text" 
-                  value={profile.department}
+                  value={formatDepartmentDisplay(profile.department)}
                   disabled
                   className="w-full px-6 py-4 rounded-2xl bg-red-50/50 border-2 border-red-50 text-red-200 font-bold cursor-not-allowed"
                 />

@@ -101,8 +101,7 @@ export default function Home() {
               className="text-5xl md:text-7xl font-black tracking-tight leading-[1.1] uppercase font-dm-sans text-white drop-shadow-[0_10px_20px_rgba(0,0,0,0.3)] overflow-visible"
             >
               WORLD CUP <br />
-              WINNER <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-red-100 to-white underline decoration-red-600 decoration-8 underline-offset-8">PREDICTION</span>
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-red-100 to-white underline decoration-red-600 decoration-8 underline-offset-8">PREDICTION CONTEST</span>
             </motion.h1>
           </div>
 
@@ -123,9 +122,9 @@ export default function Home() {
               ) : (
                 <button
                   onClick={login}
-                  className="w-full sm:w-auto flex items-center justify-center gap-2 md:gap-3 px-6 md:px-10 py-4 md:py-5 bg-white text-red-600 font-bold uppercase tracking-tight md:tracking-[0.15em] rounded-2xl hover:bg-red-50 transition-all hover:scale-105 shadow-2xl shadow-red-100 active:scale-95 text-sm md:text-base font-bebas italic whitespace-nowrap"
+                  className="w-full sm:w-auto flex items-center justify-center gap-3 md:gap-4 px-8 md:px-14 py-5 md:py-7 bg-white text-red-600 font-bold uppercase tracking-tight md:tracking-[0.15em] rounded-2xl hover:bg-red-50 transition-all hover:scale-105 shadow-2xl shadow-red-100 active:scale-95 text-lg md:text-2xl font-bebas italic whitespace-nowrap"
                 >
-                  <Image src="https://www.google.com/favicon.ico" alt="Google" width={20} height={20} />
+                  <Image src="https://www.google.com/favicon.ico" alt="Google" width={24} height={24} className="md:w-7 md:h-7" />
                   Sign in to Play
                 </button>
               )}
