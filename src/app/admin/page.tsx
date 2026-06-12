@@ -13,6 +13,7 @@ import {
   deleteDoc,
   getDoc,
   setDoc,
+  onSnapshot,
   Timestamp,
   writeBatch,
 } from "firebase/firestore";
@@ -28,17 +29,18 @@ import Link from "next/link";
 import * as XLSX from 'xlsx';
 import { Match, UserData, Prediction, DeptData, Notice } from "@/types";
 import { formatKickoff, WORLD_CUP_2026_TEAMS, normalizeDepartment, formatDepartmentDisplay } from "@/lib/utils";
+import { exportMasterPredictionsReport } from "@/lib/exportPredictionsReport";
 import { useMobileBackToHome } from "@/hooks/useMobileBackToHome";
 
-type AdminTab = 'matches' | 'users' | 'predictions' | 'notices';
+type AdminTab = 'matches' | 'users' | 'notices';
 
 export default function AdminPage() {
   useMobileBackToHome();
   const [activeTab, setActiveTab] = useState<AdminTab>('matches');
   const [matches, setMatches] = useState<Match[]>([]);
   const [users, setUsers] = useState<UserData[]>([]);
-  const [allPredictions, setAllPredictions] = useState<Prediction[]>([]);
   const [notices, setNotices] = useState<Notice[]>([]);
+  const [exportingPredictions, setExportingPredictions] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -70,92 +72,159 @@ export default function AdminPage() {
     type: "info" as Notice['type']
   });
 
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      // Load Matches
-      const matchesSnap = await getDocs(collection(db, "matches"));
-      const predictionsSnap = await getDocs(collection(db, "predictions"));
-      const usersSnap = await getDocs(collection(db, "users"));
-      const noticesSnap = await getDocs(collection(db, "notices"));
-      const settingsSnap = await getDoc(doc(db, "config", "app_settings"));
+  useEffect(() => {
+    let cancelled = false;
 
-      if (settingsSnap.exists()) {
-        setIsLeaderboardEnabled(settingsSnap.data().isLeaderboardEnabled !== false);
-      } else {
-        setIsLeaderboardEnabled(true);
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (cancelled) return;
+
+      if (!user) {
+        setIsAdmin(false);
+        setLoading(false);
+        return;
       }
 
-      const noticesData = noticesSnap.docs.map(docItem => ({
-        id: docItem.id,
-        ...docItem.data()
-      })) as Notice[];
-      setNotices(noticesData.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-
-      const usersData = usersSnap.docs.map(docItem => ({
-        id: docItem.id,
-        ...docItem.data()
-      })) as UserData[];
-      setUsers(usersData);
-
-      const predsData = predictionsSnap.docs.map(docItem => {
-        const data = docItem.data() as Prediction;
-        const user = usersData.find(u => u.uid === data.uid);
-        return {
-          ...data,
-          id: docItem.id,
-          userName: user?.name || "Unknown"
-        };
-      });
-      setAllPredictions(predsData);
-
-      const matchesData: Match[] = matchesSnap.docs.map((docItem) => {
-        const data = docItem.data() as Match;
-        const preds = predsData.filter(p => p.matchId === docItem.id);
-        
-        return {
-          ...data,
-          id: docItem.id,
-          stats: {
-            teamA: preds.filter(p => p.winnerPrediction === data.teamA).length,
-            draw: preds.filter(p => p.winnerPrediction === "DRAW").length,
-            teamB: preds.filter(p => p.winnerPrediction === data.teamB).length,
-            total: preds.length
-          }
-        };
-      });
-      setMatches(matchesData);
-
-      setGlobalStats({
-        totalUsers: usersData.filter(u => u.role === 'user').length,
-        totalPredictions: predsData.length,
-        activeMatches: matchesData.filter(m => m.status === 'live').length
-      });
-    } catch (error) {
-      console.error("Error loading data:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
+      try {
         const userDoc = await getDoc(doc(db, "users", user.uid));
+        if (cancelled) return;
+
         if (userDoc.exists() && userDoc.data().role === "admin") {
           setIsAdmin(true);
-          loadData();
         } else {
           setIsAdmin(false);
           setLoading(false);
         }
-      } else {
-        setIsAdmin(false);
-        setLoading(false);
+      } catch (error) {
+        console.error("Error verifying admin:", error);
+        if (!cancelled) {
+          setIsAdmin(false);
+          setLoading(false);
+        }
       }
     });
-    return () => unsubscribe();
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, []);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+
+    let cancelled = false;
+    setLoading(true);
+
+    let usersData: UserData[] = [];
+    let matchesRaw: Match[] = [];
+    let noticesData: Notice[] = [];
+    let statsFetchId = 0;
+
+    const refreshMatchStats = (currentMatches: Match[]) => {
+      const fetchId = ++statsFetchId;
+
+      getDocs(collection(db, "predictions"))
+        .then((predictionsSnap) => {
+          if (cancelled || fetchId !== statsFetchId) return;
+
+          const preds = predictionsSnap.docs.map(
+            (docItem) => ({ id: docItem.id, ...docItem.data() }) as Prediction
+          );
+
+          const enrichedMatches: Match[] = currentMatches.map((data) => {
+            const matchPreds = preds.filter((p) => p.matchId === data.id);
+            return {
+              ...data,
+              stats: {
+                teamA: matchPreds.filter((p) => p.winnerPrediction === data.teamA).length,
+                draw: matchPreds.filter((p) => p.winnerPrediction === "DRAW").length,
+                teamB: matchPreds.filter((p) => p.winnerPrediction === data.teamB).length,
+                total: matchPreds.length,
+              },
+            };
+          });
+
+          setMatches(enrichedMatches);
+          setGlobalStats((prev) => ({
+            ...prev,
+            totalPredictions: preds.length,
+          }));
+        })
+        .catch((error) => console.error("Error fetching prediction stats:", error));
+    };
+
+    const syncState = () => {
+      if (cancelled) return;
+
+      const baseMatches: Match[] = matchesRaw.map((data) => ({
+        ...data,
+        stats: data.stats ?? { teamA: 0, draw: 0, teamB: 0, total: 0 },
+      }));
+
+      setUsers(usersData);
+      setMatches(baseMatches);
+      setNotices(
+        [...noticesData].sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        )
+      );
+      setGlobalStats({
+        totalUsers: usersData.filter((u) => u.role === "user").length,
+        totalPredictions: 0,
+        activeMatches: baseMatches.filter((m) => m.status === "live").length,
+      });
+      setLoading(false);
+      refreshMatchStats(matchesRaw);
+    };
+
+    const unsubs = [
+      onSnapshot(
+        collection(db, "users"),
+        (snap) => {
+          usersData = snap.docs.map(
+            (docItem) => ({ id: docItem.id, ...docItem.data() }) as UserData
+          );
+          syncState();
+        },
+        (error) => console.error("Users listener error:", error)
+      ),
+      onSnapshot(
+        collection(db, "matches"),
+        (snap) => {
+          matchesRaw = snap.docs.map(
+            (docItem) => ({ id: docItem.id, ...docItem.data() }) as Match
+          );
+          syncState();
+        },
+        (error) => console.error("Matches listener error:", error)
+      ),
+      onSnapshot(
+        collection(db, "notices"),
+        (snap) => {
+          noticesData = snap.docs.map(
+            (docItem) => ({ id: docItem.id, ...docItem.data() }) as Notice
+          );
+          syncState();
+        },
+        (error) => console.error("Notices listener error:", error)
+      ),
+      onSnapshot(
+        doc(db, "config", "app_settings"),
+        (snap) => {
+          if (cancelled) return;
+          setIsLeaderboardEnabled(
+            snap.exists() ? snap.data().isLeaderboardEnabled !== false : true
+          );
+        },
+        (error) => console.error("Settings listener error:", error)
+      ),
+    ];
+
+    return () => {
+      cancelled = true;
+      unsubs.forEach((unsub) => unsub());
+    };
+  }, [isAdmin]);
 
   const handleLeaderboardToggle = async () => {
     setTogglingLeaderboard(true);
@@ -189,7 +258,6 @@ export default function AdminPage() {
       });
       setShowAddForm(false);
       setMatchForm({ teamA: "", teamB: "", kickoffTime: "" });
-      loadData();
     } catch (error) {
       console.error("Error adding match:", error);
     }
@@ -208,7 +276,6 @@ export default function AdminPage() {
       });
       setEditingMatch(null);
       setMatchForm({ teamA: "", teamB: "", kickoffTime: "" });
-      loadData();
     } catch (error) {
       console.error("Error updating match:", error);
     }
@@ -224,7 +291,6 @@ export default function AdminPage() {
         name: editingUser.name,
       });
       setEditingUser(null);
-      loadData();
     } catch (error) {
       console.error("Error updating user:", error);
     }
@@ -260,7 +326,6 @@ export default function AdminPage() {
       });
       setShowNoticeForm(false);
       setNoticeForm({ title: "", content: "", type: "info" });
-      loadData();
     } catch (error) {
       console.error("Error adding notice:", error);
     }
@@ -344,7 +409,6 @@ export default function AdminPage() {
       await batch.commit();
       alert(`Result saved! Points awarded to ${predictionSnapshot.size} predictors.`);
       setConfirmResult(null);
-      loadData();
     } catch (error) {
       console.error(error);
       alert("Failed to save result. Check console.");
@@ -412,6 +476,18 @@ export default function AdminPage() {
     XLSX.writeFile(wb, `MRF_SRC_Rankings_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
+  const handleExportMasterPredictions = async () => {
+    setExportingPredictions(true);
+    try {
+      await exportMasterPredictionsReport(db, users, matches);
+    } catch (error) {
+      console.error("Error exporting predictions report:", error);
+      alert("Failed to generate predictions report. Please try again.");
+    } finally {
+      setExportingPredictions(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -435,10 +511,6 @@ export default function AdminPage() {
     u.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
     u.employeeId?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const filteredPredictions = allPredictions.filter(p => 
-    p.userName?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -474,7 +546,6 @@ export default function AdminPage() {
           {[
             { id: 'matches', label: 'Battles', icon: LayoutGrid },
             { id: 'users', label: 'Participants', icon: Users },
-            { id: 'predictions', label: 'Predictions', icon: Target },
             { id: 'notices', label: 'Notice Board', icon: Bell }
           ].map((tab) => (
             <button
@@ -537,6 +608,33 @@ export default function AdminPage() {
           </button>
         </div>
 
+        {/* On-Demand Predictions Export */}
+        <div className="mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 md:p-6 bg-gradient-to-r from-slate-800 to-[#1B365D] rounded-2xl border border-slate-700 shadow-lg">
+          <div className="min-w-0">
+            <p className="text-sm font-black uppercase tracking-wider text-white font-bebas italic leading-relaxed">
+              Predictions Data Pipeline
+            </p>
+            <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest leading-relaxed mt-1">
+              Stream full prediction records on demand — no live DOM rendering
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleExportMasterPredictions}
+            disabled={exportingPredictions}
+            className="shrink-0 flex items-center gap-2 px-5 py-3 bg-white text-[#1B365D] font-black uppercase tracking-widest rounded-xl text-xs shadow-md hover:bg-slate-100 transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {exportingPredictions ? (
+              <>
+                <span className="w-4 h-4 border-2 border-[#1B365D]/30 border-t-[#1B365D] rounded-full animate-spin" />
+                Generating...
+              </>
+            ) : (
+              <>📥 Export Master Predictions Report (Excel)</>
+            )}
+          </button>
+        </div>
+
         {/* Tab Content */}
         <div className="bg-white rounded-[2.5rem] border border-red-50 shadow-xl overflow-hidden">
           {/* Toolbar */}
@@ -544,12 +642,11 @@ export default function AdminPage() {
             <h2 className="text-2xl font-black italic tracking-[0.1em] text-red-700 font-bebas uppercase flex items-center gap-3">
               {activeTab === 'matches' && <><Settings className="w-6 h-6" /> Match Deployment</>}
               {activeTab === 'users' && <><Users className="w-6 h-6" /> User Roster</>}
-              {activeTab === 'predictions' && <><Target className="w-6 h-6" /> Prediction Feed</>}
               {activeTab === 'notices' && <><Bell className="w-6 h-6" /> Notice Management</>}
             </h2>
             
             <div className="flex items-center gap-3">
-              {(activeTab === 'users' || activeTab === 'predictions') && (
+              {activeTab === 'users' && (
                 <div className="relative">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-red-200" />
                   <input 
@@ -768,51 +865,6 @@ export default function AdminPage() {
                       </td>
                     </tr>
                   ))}
-                </tbody>
-              </table>
-            )}
-
-            {activeTab === 'predictions' && (
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-red-50/50 text-[10px] font-black uppercase tracking-widest text-red-400">
-                    <th className="px-8 py-4">Time</th>
-                    <th className="px-8 py-4">Participant</th>
-                    <th className="px-8 py-4">Battle</th>
-                    <th className="px-8 py-4">Winner Pred.</th>
-                    <th className="px-8 py-4">Goals Pred.</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-red-50">
-                  {filteredPredictions.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map((pred) => {
-                    const match = matches.find(m => m.id === pred.matchId);
-                    return (
-                      <tr key={pred.id} className="hover:bg-red-50/20 transition-all">
-                        <td className="px-8 py-6 text-[10px] font-bold text-red-300 uppercase tracking-widest">
-                          {new Date(pred.createdAt).toLocaleDateString()} <br />
-                          {new Date(pred.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </td>
-                        <td className="px-8 py-6 font-black italic uppercase tracking-tighter text-red-700 font-bebas text-lg">
-                          {pred.userName}
-                        </td>
-                        <td className="px-8 py-6">
-                          <span className="text-xs font-bold text-red-400 uppercase tracking-widest">
-                            {match ? `${match.teamA} vs ${match.teamB}` : 'Unknown Battle'}
-                          </span>
-                        </td>
-                        <td className="px-8 py-6">
-                          <span className="px-3 py-1 bg-red-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest">
-                            {pred.winnerPrediction}
-                          </span>
-                        </td>
-                        <td className="px-8 py-6">
-                          <span className="px-3 py-1 bg-red-50 text-red-700 border border-red-100 rounded-lg text-[10px] font-black uppercase tracking-widest">
-                            {pred.goalsPrediction} Goals
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
                 </tbody>
               </table>
             )}

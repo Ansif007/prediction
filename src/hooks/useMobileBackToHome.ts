@@ -23,5 +23,5 @@ export function useMobileBackToHome() {
     return () => {
       window.removeEventListener("popstate", handlePopState);
     };
-  }, [router]);
+  }, []);
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, updateDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
@@ -27,20 +27,28 @@ export default function SetupModal() {
   const [userId, setUserId] = useState<string | null>(null);
   const pathname = usePathname();
   const router = useRouter();
+  const pathnameRef = useRef(pathname);
 
   useEffect(() => {
+    pathnameRef.current = pathname;
+  }, [pathname]);
+
+  useEffect(() => {
+    let cancelled = false;
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (cancelled) return;
+
       if (user) {
         setUserId(user.uid);
         const userRef = doc(db, "users", user.uid);
         const userSnap = await getDoc(userRef);
-        
+        if (cancelled) return;
+
         if (userSnap.exists()) {
           const data = userSnap.data();
-          // Show modal if profile is incomplete and user is not an admin
           if ((!data.employeeId || !data.department) && data.role !== "admin") {
             setIsOpen(true);
-            // Block scrolling when modal is open
             document.body.style.overflow = "hidden";
           } else {
             setIsOpen(false);
@@ -49,15 +57,18 @@ export default function SetupModal() {
         }
       } else {
         setIsOpen(false);
-        // If not logged in and trying to access protected routes
         const protectedRoutes = ["/dashboard", "/leaderboard", "/profile", "/admin", "/predict"];
-        if (protectedRoutes.some(route => pathname.startsWith(route))) {
+        if (protectedRoutes.some(route => pathnameRef.current.startsWith(route))) {
           router.push("/");
         }
       }
     });
-    return () => unsubscribe();
-  }, [pathname, router]);
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [router]);
 
 
   // Lookup employee name from allowedEmployees collection when ID changes

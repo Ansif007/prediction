@@ -16,14 +16,12 @@ import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { Calendar, ChevronRight, Trophy, Star, CheckCircle2 } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { Match } from "@/types";
 import { formatKickoff, getTeamFlag } from "@/lib/utils";
 import { useMobileBackToHome } from "@/hooks/useMobileBackToHome";
 
 export default function Dashboard() {
   useMobileBackToHome();
-  const router = useRouter();
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const [userRank, setUserRank] = useState<number | string>("--");
@@ -38,24 +36,30 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+
     const fetchData = async (user: User | null) => {
       try {
         if (user) {
           const userDoc = await getDoc(doc(db, "users", user.uid));
+          if (cancelled) return;
           const userData = userDoc.data();
           if (userDoc.exists() && userData && userData.role === "admin") {
             setIsAdmin(true);
-            // Don't redirect, let them see the arena
+          } else {
+            setIsAdmin(false);
           }
+        } else {
+          setIsAdmin(false);
         }
-        
-        // Fetch Matches
+
         const querySnapshot = await getDocs(collection(db, "matches"));
+        if (cancelled) return;
+
         const matchList: Match[] = querySnapshot.docs.map((docItem) => ({
           id: docItem.id,
           ...(docItem.data() as Omit<Match, "id">),
         }));
-        // Sort matches by kickoff time (earliest first)
         matchList.sort((a: Match, b: Match) => {
           const timeA = a.kickoffTime instanceof Timestamp ? a.kickoffTime.toDate().getTime() : new Date(a.kickoffTime as string | number | Date).getTime();
           const timeB = b.kickoffTime instanceof Timestamp ? b.kickoffTime.toDate().getTime() : new Date(b.kickoffTime as string | number | Date).getTime();
@@ -65,10 +69,12 @@ export default function Dashboard() {
 
         if (user) {
           const predsSnap = await getDocs(query(collection(db, "predictions"), where("uid", "==", user.uid)));
+          if (cancelled) return;
           setPredictedMatchIds(new Set(predsSnap.docs.map((d) => d.data().matchId as string)));
 
-          // Fetch User Rank and Points
           const usersSnap = await getDocs(query(collection(db, "users"), where("role", "==", "user")));
+          if (cancelled) return;
+
           const allUsers = usersSnap.docs.map(docItem => ({
             id: docItem.id,
             points: (docItem.data().totalPoints as number) || 0
@@ -77,7 +83,6 @@ export default function Dashboard() {
           const currentUserData = allUsers.find(u => u.id === user.uid);
           if (currentUserData) {
             setUserPoints(currentUserData.points);
-            // Handling same points = same rank
             const rank = allUsers.findIndex(u => u.points <= currentUserData.points) + 1;
             setUserRank(rank);
           }
@@ -87,7 +92,9 @@ export default function Dashboard() {
       } catch (error) {
         console.error("Error fetching data:", error);
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
@@ -95,8 +102,11 @@ export default function Dashboard() {
       fetchData(user);
     });
 
-    return () => unsubscribe();
-  }, [router]);
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, []);
 
   if (loading) {
     return (

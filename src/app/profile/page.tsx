@@ -36,10 +36,16 @@ export default function ProfilePage() {
   });
 
   useEffect(() => {
+    let cancelled = false;
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (cancelled) return;
+
       if (user) {
         const userRef = doc(db, "users", user.uid);
         const userSnap = await getDoc(userRef);
+        if (cancelled) return;
+
         if (userSnap.exists()) {
           const data = userSnap.data() as UserData;
           if (data.role === "admin") {
@@ -49,18 +55,18 @@ export default function ProfilePage() {
           setProfile(data);
         }
 
-        // Fetch Stats
         try {
           const matchesSnap = await getDocs(collection(db, "matches"));
           const predsSnap = await getDocs(query(collection(db, "predictions"), where("uid", "==", user.uid)));
-          
+          if (cancelled) return;
+
           const matches = matchesSnap.docs.map(d => ({ id: d.id, ...d.data() } as Match));
           const predictions = predsSnap.docs.map(d => d.data());
           const predictedMatchIds = new Set(predictions.map(p => p.matchId));
 
           const newStats = {
             completed: 0,
-            predicted: predictedMatchIds.size, // Total number of predictions made
+            predicted: predictedMatchIds.size,
             pending: 0,
             missed: 0
           };
@@ -82,9 +88,16 @@ export default function ProfilePage() {
           console.error("Error fetching stats:", error);
         }
       }
-      setLoading(false);
+
+      if (!cancelled) {
+        setLoading(false);
+      }
     });
-    return () => unsubscribe();
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, [router]);
 
   const handleSave = async (e: React.FormEvent) => {

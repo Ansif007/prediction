@@ -55,20 +55,34 @@ export default function PredictPage({
   const [pointsEarned, setPointsEarned] = useState<number | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
+      if (cancelled) return;
       setUser(u);
       if (u) {
         const userDoc = await getDoc(doc(db, "users", u.uid));
-        setIsAdmin(userDoc.exists() && userDoc.data().role === "admin");
+        if (!cancelled) {
+          setIsAdmin(userDoc.exists() && userDoc.data().role === "admin");
+        }
+      } else {
+        setIsAdmin(false);
       }
     });
-    return () => unsubscribe();
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+
     const fetchMatch = async () => {
       const docRef = doc(db, "matches", id);
       const docSnap = await getDoc(docRef);
+      if (cancelled) return;
 
       if (docSnap.exists()) {
         const data = docSnap.data();
@@ -77,13 +91,14 @@ export default function PredictPage({
           ? data.kickoffTime.toDate() 
           : new Date(data.kickoffTime);
         
-        // Lock 1 minute before kickoff
         const lockTime = new Date(kickoff.getTime() - 1 * 60000);
         setIsLocked(new Date() > lockTime || data.status === 'completed' || data.status === 'live');
 
         if (user) {
           const predRef = doc(db, "predictions", `${user.uid}_${id}`);
           const predSnap = await getDoc(predRef);
+          if (cancelled) return;
+
           if (predSnap.exists()) {
             const predData = predSnap.data();
             setPrediction(predData.winnerPrediction);
@@ -94,10 +109,20 @@ export default function PredictPage({
           }
         }
       }
-      setLoading(false);
+
+      if (!cancelled) {
+        setLoading(false);
+      }
     };
 
-    if (id) fetchMatch();
+    if (id) {
+      setLoading(true);
+      fetchMatch();
+    }
+
+    return () => {
+      cancelled = true;
+    };
   }, [id, user]);
 
   const handleSubmit = async () => {
