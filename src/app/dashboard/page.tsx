@@ -24,7 +24,6 @@ export default function Dashboard() {
   useMobileBackToHome();
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userRank, setUserRank] = useState<number | string>("--");
   const [userPoints, setUserPoints] = useState<number>(0);
   const [isAdmin, setIsAdmin] = useState(false);
   const [predictedMatchIds, setPredictedMatchIds] = useState<Set<string>>(new Set());
@@ -88,8 +87,6 @@ export default function Dashboard() {
           const currentUserData = allUsers.find(u => u.id === user.uid);
           if (currentUserData) {
             setUserPoints(currentUserData.points);
-            const rank = allUsers.findIndex(u => u.points <= currentUserData.points) + 1;
-            setUserRank(rank);
           }
         } else {
           setPredictedMatchIds(new Set());
@@ -159,15 +156,6 @@ export default function Dashboard() {
             <div>
               <div className="text-[8px] md:text-[10px] font-bold text-red-300 uppercase tracking-widest leading-relaxed mb-1">Your Points</div>
               <div className="text-lg md:text-xl font-black text-red-700 leading-relaxed font-bebas">{userPoints} PTS</div>
-            </div>
-          </div>
-          <div className="p-3 md:p-4 bg-red-50 rounded-2xl border border-red-100 flex items-center gap-3 md:gap-4">
-            <div className="w-8 h-8 md:w-10 md:h-10 bg-white rounded-xl flex items-center justify-center shadow-sm">
-              <Trophy className="w-4 h-4 md:w-5 md:h-5 text-yellow-600" />
-            </div>
-            <div>
-              <div className="text-[8px] md:text-[10px] font-bold text-red-300 uppercase tracking-widest leading-relaxed mb-1">Your Rank</div>
-              <div className="text-lg md:text-xl font-black text-red-700 leading-relaxed font-bebas">#{userRank}</div>
             </div>
           </div>
         </div>

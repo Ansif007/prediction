@@ -5,7 +5,7 @@ import { collection, getDocs, query, doc, getDoc } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { motion } from "framer-motion";
-import { Trophy, Medal, Award, User as UserIcon, Star, TrendingUp, Users as UsersIcon, Building2, EyeOff } from "lucide-react";
+import { Trophy, Medal, Award, User as UserIcon, Star, TrendingUp, Users as UsersIcon, Building2, EyeOff, Search } from "lucide-react";
 import { UserData, DeptData } from "@/types";
 import { normalizeDepartment, formatDepartmentDisplay } from "@/lib/utils";
 import { useMobileBackToHome } from "@/hooks/useMobileBackToHome";
@@ -19,6 +19,7 @@ export default function Leaderboard() {
   const [error, setError] = useState<string | null>(null);
   const [isLeaderboardEnabled, setIsLeaderboardEnabled] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     const loadLeaderboard = async () => {
@@ -134,8 +135,11 @@ export default function Leaderboard() {
     );
   }
 
-  const topThree = users.slice(0, 3);
-  const theRest = users.slice(3);
+  const filteredUsers = searchQuery
+    ? users.filter(u => u.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    : users;
+  const topThree = filteredUsers.slice(0, 3);
+  const theRest = filteredUsers.slice(3);
 
   return (
     <main className="max-w-5xl mx-auto px-4 md:px-6 py-8 md:py-12 overflow-visible">
@@ -175,6 +179,19 @@ export default function Leaderboard() {
             Department
           </button>
         </div>
+
+        {view === 'individual' && (
+          <div className="max-w-md mx-auto mt-8 relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-red-300" />
+            <input
+              type="text"
+              placeholder="Search participants..."
+              className="w-full pl-11 pr-6 py-3 rounded-xl bg-red-50 border border-red-100 outline-none text-sm font-bold text-red-700 focus:border-red-600 transition-all placeholder:text-red-200"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+        )}
       </header>
 
       {view === 'individual' ? (
@@ -238,7 +255,7 @@ export default function Leaderboard() {
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-black italic uppercase tracking-wide text-red-700 font-bebas text-lg md:text-xl leading-relaxed truncate">
+                        <h3 className="font-black italic uppercase tracking-wide text-red-700 font-bebas text-lg md:text-xl leading-relaxed break-words">
                           {user.name}
                         </h3>
                       </div>
@@ -356,7 +373,7 @@ function PodiumCard({ user, rank, icon, height, isGold, delay, mobileOrder }: { 
         
         <div className={`flex-1 md:w-full md:mt-0 ${isGold ? 'md:bg-red-600' : 'md:bg-white md:border md:border-red-50'} md:rounded-t-[3rem] md:p-8 text-left md:text-center md:shadow-2xl flex flex-col md:items-center justify-center gap-1 md:gap-2`}>
           <div className="flex flex-col md:items-center gap-0.5">
-            <h3 className={`font-black italic uppercase tracking-wide font-bebas text-lg md:text-2xl leading-relaxed truncate w-full ${isGold ? 'text-white' : 'text-red-700'}`}>
+            <h3 className={`font-black italic uppercase tracking-wide font-bebas text-lg md:text-2xl leading-relaxed break-words w-full ${isGold ? 'text-white' : 'text-red-700'}`}>
               {user.name}
             </h3>
             {user.department && (

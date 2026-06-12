@@ -5,7 +5,7 @@ import { auth, db } from "@/lib/firebase";
 import { collection, doc, getDoc, getDocs, updateDoc, query, where } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { motion } from "framer-motion";
-import { User as UserIcon, Save, ArrowLeft, BadgeCheck, Star, CheckCircle2, Target, Timer, XCircle } from "lucide-react";
+import { User as UserIcon, Save, ArrowLeft, BadgeCheck, Star, CheckCircle2, Target, Timer, XCircle, Trophy } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { UserData, Match } from "@/types";
@@ -34,6 +34,7 @@ export default function ProfilePage() {
     pending: 0,
     missed: 0
   });
+  const [userRank, setUserRank] = useState<number>(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -84,6 +85,18 @@ export default function ProfilePage() {
           });
 
           setStats(newStats);
+
+          // Calculate rank
+          const allUsersSnap = await getDocs(query(collection(db, "users"), where("role", "==", "user")));
+          const allUsersList = allUsersSnap.docs
+            .map(d => ({ id: d.id, points: (d.data().totalPoints as number) || 0, name: (d.data().name as string) || '' }))
+            .sort((a, b) => {
+              const pts = b.points - a.points;
+              if (pts !== 0) return pts;
+              return a.name.localeCompare(b.name);
+            });
+          const userIndex = allUsersList.findIndex(u => u.id === user.uid);
+          if (userIndex !== -1) setUserRank(userIndex + 1);
         } catch (error) {
           console.error("Error fetching stats:", error);
         }
@@ -171,9 +184,13 @@ export default function ProfilePage() {
           animate={{ opacity: 1, y: 0 }}
           className="bg-red-600 p-8 rounded-[2.5rem] shadow-xl shadow-red-200 text-white flex items-center justify-between"
         >
-          <div>
-            <div className="text-[10px] font-black uppercase tracking-widest text-red-100 mb-1">Total Points</div>
+          <div className="space-y-1">
+            <div className="text-[10px] font-black uppercase tracking-widest text-red-100">Total Points</div>
             <div className="text-5xl font-black italic font-bebas">{profile.totalPoints}</div>
+            <div className="flex items-center gap-1.5 pt-1">
+              <Trophy className="w-4 h-4 text-yellow-400" />
+              <span className="text-sm font-black italic font-bebas text-red-100">Rank #{userRank}</span>
+            </div>
           </div>
           <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center">
             <Star className="w-8 h-8 text-white fill-white" />
