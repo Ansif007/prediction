@@ -373,12 +373,12 @@ export default function AdminPage() {
         
         // Skip if points already awarded for this prediction
         if (pred.pointsAwarded) continue;
-
+  
         const user = users.find(u => u.uid === pred.uid);
         
         // Skip admins
         if (user?.role === 'admin') continue;
-
+  
         let pointsEarned = 0;
         
         // Winner Prediction (2 Points)
@@ -390,22 +390,25 @@ export default function AdminPage() {
         if (pred.goalsPrediction === goals) {
           pointsEarned += 1;
         }
-
+  
         // Always mark prediction as processed to prevent double-counting even if 0 points earned
         const predictionRef = doc(db, "predictions", predictionDoc.id);
         batch.update(predictionRef, {
           pointsAwarded: true,
           pointsEarned: pointsEarned
         });
-
+  
         if (pointsEarned > 0) {
           const userRef = doc(db, "users", pred.uid);
-          batch.update(userRef, {
+          
+          //  SAFE UPSERT FIX: Uses batch.set with merge: true
+          // This creates the document if missing, or increments points safely if it exists!
+          batch.set(userRef, {
             totalPoints: increment(pointsEarned)
-          });
+          }, { merge: true });
         }
       }
-
+  
       await batch.commit();
       alert(`Result saved! Points awarded to ${predictionSnapshot.size} predictors.`);
       setConfirmResult(null);
