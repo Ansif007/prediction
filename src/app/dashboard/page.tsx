@@ -77,8 +77,13 @@ export default function Dashboard() {
 
           const allUsers = usersSnap.docs.map(docItem => ({
             id: docItem.id,
+            name: (docItem.data().name as string) || '',
             points: (docItem.data().totalPoints as number) || 0
-          })).sort((a, b) => b.points - a.points);
+          })).sort((a, b) => {
+            const pts = b.points - a.points;
+            if (pts !== 0) return pts;
+            return (a.name || '').localeCompare(b.name || '');
+          });
 
           const currentUserData = allUsers.find(u => u.id === user.uid);
           if (currentUserData) {
@@ -193,12 +198,16 @@ export default function Dashboard() {
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: index * 0.1 }}
           >
-            <Link
-              href={`/predict/${match.id}`}
-              className={`group block bg-white border border-red-50 rounded-[1.5rem] md:rounded-[2rem] p-4 md:p-8 card-shadow hover:border-red-400 transition-all active:scale-[0.98] ${
-                match.status === 'completed' ? 'opacity-90' : ''
-              }`}
-            >
+              <Link
+                href={`/predict/${match.id}`}
+                className={`group block bg-white rounded-[1.5rem] md:rounded-[2rem] p-4 md:p-8 card-shadow transition-all active:scale-[0.98] ${
+                  predictedMatchIds.has(match.id)
+                    ? 'border-2 border-emerald-400 hover:border-emerald-500'
+                    : 'border border-red-50 hover:border-red-400'
+                } ${
+                  match.status === 'completed' ? 'opacity-90' : ''
+                }`}
+              >
               <MatchCardContent match={match} currentTime={currentTime} isPredicted={predictedMatchIds.has(match.id)} />
             </Link>
           </motion.div>
@@ -254,16 +263,16 @@ function MatchCardContent({ match, currentTime, isPredicted }: { match: Match, c
 
           {match.status === 'completed' && match.totalGoalsResult && (
             <div className="flex flex-col gap-1.5">
-              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-50 text-red-700 border border-red-100 text-[8px] font-black uppercase tracking-widest leading-relaxed">
-                <Trophy className="w-2.5 h-2.5 shrink-0" />
-                Goals: {match.totalGoalsResult}
-              </div>
               {match.result && (
                 <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-yellow-400 text-white shadow-md text-[8px] font-black uppercase tracking-widest leading-relaxed">
                   <Star className="w-2.5 h-2.5 fill-white shrink-0" />
                   Winner: {match.result}
                 </div>
               )}
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-50 text-red-700 border border-red-100 text-[8px] font-black uppercase tracking-widest leading-relaxed">
+                <Trophy className="w-2.5 h-2.5 shrink-0" />
+                Total Goals: {match.totalGoalsResult}
+              </div>
             </div>
           )}
         </div>

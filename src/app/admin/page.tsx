@@ -422,9 +422,13 @@ export default function AdminPage() {
     const wb = XLSX.utils.book_new();
     
     // 1. Leaderboard Sheet (Primary Rank File)
-    const leaderboardData = users
-      .filter(u => u.role === 'user')
-      .sort((a, b) => b.totalPoints - a.totalPoints)
+      const leaderboardData = users
+        .filter(u => u.role === 'user')
+        .sort((a, b) => {
+          const pts = b.totalPoints - a.totalPoints;
+          if (pts !== 0) return pts;
+          return (a.name || '').localeCompare(b.name || '');
+        })
       .map((u, index) => ({
         Rank: index + 1,
         Name: u.name,

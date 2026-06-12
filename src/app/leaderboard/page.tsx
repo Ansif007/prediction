@@ -52,7 +52,11 @@ export default function Leaderboard() {
           .filter(u => u.role !== "admin");
 
         // Calculate Individual Leaderboard
-        const individualData = [...allUsers].sort((a, b) => (b.totalPoints || 0) - (a.totalPoints || 0));
+        const individualData = [...allUsers].sort((a, b) => {
+          const pts = (b.totalPoints || 0) - (a.totalPoints || 0);
+          if (pts !== 0) return pts;
+          return (a.name || '').localeCompare(b.name || '');
+        });
         setUsers(individualData);
 
         // Calculate Department Leaderboard
