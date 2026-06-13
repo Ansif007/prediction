@@ -52,7 +52,7 @@ export default function Leaderboard() {
             ...(doc.data() as UserData),
             id: doc.id,
           }))
-          .filter(u => u.role !== "admin");
+          .filter(u => u.role !== "admin" && u.showOnLeaderboard !== false);
 
         // Calculate Individual Leaderboard
         const individualData = [...allUsers].sort((a, b) => {

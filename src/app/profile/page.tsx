@@ -91,6 +91,7 @@ export default function ProfilePage() {
           // Calculate rank
           const allUsersSnap = await getDocs(query(collection(db, "users"), where("role", "==", "user")));
           const allUsersList = allUsersSnap.docs
+            .filter(d => d.data().showOnLeaderboard !== false)
             .map(d => ({ id: d.id, points: (d.data().totalPoints as number) || 0, name: (d.data().name as string) || '' }))
             .sort((a, b) => {
               const pts = b.points - a.points;

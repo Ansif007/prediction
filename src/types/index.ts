@@ -26,6 +26,7 @@ export interface UserData {
   department?: string;
   employeeId?: string;
   profileSetup?: boolean;
+  showOnLeaderboard?: boolean;
   createdAt?: string;
 }
 

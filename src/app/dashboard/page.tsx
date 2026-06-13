@@ -30,6 +30,7 @@ export default function Dashboard() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [predictedMatchIds, setPredictedMatchIds] = useState<Set<string>>(new Set());
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [matchTab, setMatchTab] = useState<'upcoming' | 'completed'>('upcoming');
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 10000); // Update every 10s
@@ -178,7 +179,24 @@ export default function Dashboard() {
 
       <div className="grid gap-4 md:gap-6">
         <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm font-black uppercase tracking-widest text-red-900 font-bebas italic">Active Battles</h3>
+          <div className="flex rounded-xl bg-red-50 p-1 gap-1">
+            <button
+              onClick={() => setMatchTab('upcoming')}
+              className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${
+                matchTab === 'upcoming' ? 'bg-white text-red-700 shadow-sm' : 'text-red-400 hover:text-red-600'
+              }`}
+            >
+              Upcoming
+            </button>
+            <button
+              onClick={() => setMatchTab('completed')}
+              className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${
+                matchTab === 'completed' ? 'bg-white text-red-700 shadow-sm' : 'text-red-400 hover:text-red-600'
+              }`}
+            >
+              Completed
+            </button>
+          </div>
           <div className="flex flex-wrap gap-3 md:gap-4 justify-end">
             <span className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-600 uppercase tracking-wider">
               <CheckCircle2 className="w-3 h-3" />
@@ -194,7 +212,7 @@ export default function Dashboard() {
             </span>
           </div>
         </div>
-        {matches.map((match, index) => (
+        {(matchTab === 'upcoming' ? matches.filter(m => m.status !== 'completed') : matches.filter(m => m.status === 'completed')).map((match, index) => (
           <motion.div
             key={match.id}
             initial={{ opacity: 0, x: -20 }}
@@ -216,7 +234,7 @@ export default function Dashboard() {
           </motion.div>
         ))}
 
-        {matches.length === 0 && (
+        {(matchTab === 'upcoming' ? matches.filter(m => m.status !== 'completed') : matches.filter(m => m.status === 'completed')).length === 0 && (
           <div className="py-20 text-center">
             <div className="w-20 h-20 bg-red-50 rounded-3xl flex items-center justify-center mx-auto mb-6">
               <Calendar className="w-10 h-10 text-red-200" />

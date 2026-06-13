@@ -49,6 +49,7 @@ export default function AdminPage() {
   const [editingUser, setEditingUser] = useState<UserData | null>(null);
   const [confirmResult, setConfirmResult] = useState<{ matchId: string, result: string, goals: string } | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [matchTab, setMatchTab] = useState<'upcoming' | 'completed'>('upcoming');
   const [isLeaderboardEnabled, setIsLeaderboardEnabled] = useState(true);
   const [togglingLeaderboard, setTogglingLeaderboard] = useState(false);
   
@@ -303,6 +304,17 @@ export default function AdminPage() {
       setEditingUser(null);
     } catch (error) {
       console.error("Error updating user:", error);
+    }
+  };
+
+  const handleToggleLeaderboardVisibility = async (user: UserData) => {
+    try {
+      const userRef = doc(db, "users", user.id);
+      await updateDoc(userRef, {
+        showOnLeaderboard: user.showOnLeaderboard === false ? true : false,
+      });
+    } catch (error) {
+      console.error("Error toggling leaderboard visibility:", error);
     }
   };
 
@@ -709,6 +721,24 @@ export default function AdminPage() {
             </div>
           </div>
 
+          <div className="px-8 py-4 border-b border-red-50 flex gap-1">
+            <button
+              onClick={() => setMatchTab('upcoming')}
+              className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${
+                matchTab === 'upcoming' ? 'bg-red-50 text-red-700 shadow-sm' : 'text-red-400 hover:text-red-600'
+              }`}
+            >
+              Upcoming
+            </button>
+            <button
+              onClick={() => setMatchTab('completed')}
+              className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${
+                matchTab === 'completed' ? 'bg-red-50 text-red-700 shadow-sm' : 'text-red-400 hover:text-red-600'
+              }`}
+            >
+              Completed
+            </button>
+          </div>
           <div className="overflow-x-auto">
             {activeTab === 'matches' && (
               <table className="w-full text-left border-collapse">
@@ -723,10 +753,7 @@ export default function AdminPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-red-50">
-                  {matches.sort((a,b) => {
-                    const aDone = a.status === 'completed' ? 1 : 0;
-                    const bDone = b.status === 'completed' ? 1 : 0;
-                    if (aDone !== bDone) return aDone - bDone;
+                  {(matchTab === 'upcoming' ? matches.filter(m => m.status !== 'completed') : matches.filter(m => m.status === 'completed')).sort((a,b) => {
                     const timeA = a.kickoffTime instanceof Timestamp ? a.kickoffTime.toDate().getTime() : new Date(a.kickoffTime as string).getTime();
                     const timeB = b.kickoffTime instanceof Timestamp ? b.kickoffTime.toDate().getTime() : new Date(b.kickoffTime as string).getTime();
                     return timeA - timeB;
@@ -911,12 +938,25 @@ export default function AdminPage() {
                         </div>
                       </td>
                       <td className="px-8 py-6 text-right">
-                        <button 
-                          onClick={() => setEditingUser(user)}
-                          className="p-2 bg-red-50 text-red-600 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => handleToggleLeaderboardVisibility(user)}
+                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                              user.showOnLeaderboard !== false ? 'bg-emerald-400' : 'bg-red-300'
+                            }`}
+                            title={user.showOnLeaderboard !== false ? 'Visible on leaderboard' : 'Hidden from leaderboard'}
+                          >
+                            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+                              user.showOnLeaderboard !== false ? 'translate-x-[18px]' : 'translate-x-[3px]'
+                            }`} />
+                          </button>
+                          <button 
+                            onClick={() => setEditingUser(user)}
+                            className="p-2 bg-red-50 text-red-600 rounded-lg"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
