@@ -33,12 +33,14 @@ import { Match } from "@/types";
 import { getTeamFlag } from "@/lib/utils";
 import { useToast } from "@/components/Toast";
 import { useMobileBackToHome } from "@/hooks/useMobileBackToHome";
+import { useRequireSetup } from "@/hooks/useRequireSetup";
 
 export default function PredictPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const { loading: setupLoading, blocked: setupBlocked } = useRequireSetup();
   const { id } = use(params);
   useMobileBackToHome();
   const router = useRouter();
@@ -124,6 +126,16 @@ export default function PredictPage({
       cancelled = true;
     };
   }, [id, user]);
+
+  if (setupLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="w-10 h-10 border-4 border-red-200 border-t-red-600 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (setupBlocked) return null;
 
   const handleSubmit = async () => {
     if (!user || !prediction || !goals || isLocked || isAdmin) return;

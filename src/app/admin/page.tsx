@@ -57,6 +57,7 @@ export default function AdminPage() {
     totalPredictions: 0,
     activeMatches: 0
   });
+  const [incompleteCount, setIncompleteCount] = useState(0);
   
   // New/Edit Match Form State
   const [matchForm, setMatchForm] = useState({
@@ -161,7 +162,13 @@ export default function AdminPage() {
         stats: data.stats ?? { teamA: 0, draw: 0, teamB: 0, total: 0 },
       }));
 
-      setUsers(usersData);
+      setUsers(
+        [...usersData].sort((a, b) => {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateB - dateA;
+        })
+      );
       setMatches(baseMatches);
       setNotices(
         [...noticesData].sort(
@@ -173,6 +180,9 @@ export default function AdminPage() {
         totalPredictions: 0,
         activeMatches: baseMatches.filter((m) => m.status === "live").length,
       });
+      setIncompleteCount(
+        usersData.filter((u) => u.role === "user" && (!u.employeeId || !u.department)).length
+      );
       setLoading(false);
       refreshMatchStats(matchesRaw);
     };
@@ -581,6 +591,19 @@ export default function AdminPage() {
           <StatBox icon={<LayoutGrid className="w-5 h-5" />} label="Total Battles" value={matches.length} color="red" />
         </div>
 
+        {/* Incomplete Users Alert */}
+        {incompleteCount > 0 && (
+          <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-center gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+            <div>
+              <span className="text-sm font-black text-amber-800 font-bebas italic uppercase">{incompleteCount}</span>
+              <span className="text-[11px] font-bold text-amber-700 uppercase tracking-wider ml-1">
+                user{incompleteCount !== 1 ? 's' : ''} with incomplete profile — no Employee ID or Group set
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Leaderboard Visibility Toggle */}
         <div className="mb-8 flex items-center justify-between gap-4 p-5 md:p-6 bg-white rounded-2xl border border-red-50 shadow-sm">
           <div className="flex items-center gap-3 min-w-0">
@@ -826,12 +849,13 @@ export default function AdminPage() {
                     <th className="px-8 py-4">Contact Info</th>
                     <th className="px-8 py-4">Organization</th>
                     <th className="px-8 py-4">Performance</th>
+                    <th className="px-8 py-4">Joined</th>
                     <th className="px-8 py-4 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-red-50">
                   {filteredUsers.map((user) => (
-                    <tr key={user.uid} className="hover:bg-red-50/20 transition-all group">
+                    <tr key={user.id} className="hover:bg-red-50/20 transition-all group">
                       <td className="px-8 py-6">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center border border-red-100">
@@ -860,6 +884,27 @@ export default function AdminPage() {
                         <div className="flex items-center gap-2">
                           <Trophy className="w-4 h-4 text-yellow-500" />
                           <span className="text-lg font-black italic text-red-600 font-bebas">{user.totalPoints} PTS</span>
+                        </div>
+                      </td>
+                      <td className="px-8 py-6">
+                        <div className="flex flex-col">
+                          <span className="text-xs font-bold text-red-700">
+                            {user.createdAt
+                              ? new Date(user.createdAt).toLocaleDateString('en-IN', {
+                                  day: 'numeric',
+                                  month: 'short',
+                                  year: 'numeric',
+                                })
+                              : '—'}
+                          </span>
+                          {user.createdAt && (
+                            <span className="text-[10px] font-bold text-red-300 uppercase tracking-widest">
+                              {new Date(user.createdAt).toLocaleTimeString('en-IN', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className="px-8 py-6 text-right">

@@ -9,8 +9,10 @@ import { Trophy, Medal, Award, User as UserIcon, Star, TrendingUp, Users as User
 import { UserData, DeptData } from "@/types";
 import { normalizeDepartment, formatDepartmentDisplay } from "@/lib/utils";
 import { useMobileBackToHome } from "@/hooks/useMobileBackToHome";
+import { useRequireSetup } from "@/hooks/useRequireSetup";
 
 export default function Leaderboard() {
+  const { loading: setupLoading, blocked: setupBlocked } = useRequireSetup();
   useMobileBackToHome();
   const [users, setUsers] = useState<UserData[]>([]);
   const [depts, setDepts] = useState<DeptData[]>([]);
@@ -95,6 +97,16 @@ export default function Leaderboard() {
     };
     loadLeaderboard();
   }, []);
+
+  if (setupLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="w-10 h-10 border-4 border-red-200 border-t-red-600 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (setupBlocked) return null;
 
   if (loading) {
     return (

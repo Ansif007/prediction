@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { DM_Sans, Bebas_Neue } from "next/font/google";
 import "./globals.css";
 import Navbar from "../components/Navbar";
-import SetupModal from "../components/SetupModal";
 import { ToastProvider } from "../components/Toast";
 
 const dmSans = DM_Sans({
@@ -32,7 +31,6 @@ export default function RootLayout({
       <body className="antialiased font-sans">
         <ToastProvider>
           <Navbar />
-          <SetupModal />
           <div className="pt-20 min-h-screen">
             {children}
           </div>

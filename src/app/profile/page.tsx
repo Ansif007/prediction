@@ -12,6 +12,7 @@ import { UserData, Match } from "@/types";
 import { useToast } from "@/components/Toast";
 import { formatDepartmentDisplay } from "@/lib/utils";
 import { useMobileBackToHome } from "@/hooks/useMobileBackToHome";
+import { useRequireSetup } from "@/hooks/useRequireSetup";
 
 interface MatchStats {
   completed: number;
@@ -21,6 +22,7 @@ interface MatchStats {
 }
 
 export default function ProfilePage() {
+  const { loading: setupLoading, blocked: setupBlocked } = useRequireSetup();
   useMobileBackToHome();
   const router = useRouter();
   const { showToast } = useToast();
@@ -112,6 +114,16 @@ export default function ProfilePage() {
       unsubscribe();
     };
   }, [router]);
+
+  if (setupLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="w-10 h-10 border-4 border-red-200 border-t-red-600 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (setupBlocked) return null;
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();

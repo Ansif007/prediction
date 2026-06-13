@@ -19,8 +19,10 @@ import { Calendar, ChevronRight, Trophy, Star, CheckCircle2 } from "lucide-react
 import { Match } from "@/types";
 import { formatKickoff, getTeamFlag } from "@/lib/utils";
 import { useMobileBackToHome } from "@/hooks/useMobileBackToHome";
+import { useRequireSetup } from "@/hooks/useRequireSetup";
 
 export default function Dashboard() {
+  const { loading: setupLoading, blocked: setupBlocked } = useRequireSetup();
   useMobileBackToHome();
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
@@ -109,6 +111,16 @@ export default function Dashboard() {
       unsubscribe();
     };
   }, []);
+
+  if (setupLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="w-10 h-10 border-4 border-red-200 border-t-red-600 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (setupBlocked) return null;
 
   if (loading) {
     return (

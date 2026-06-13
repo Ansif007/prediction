@@ -46,7 +46,7 @@ export default function Home() {
         
         await setDoc(userRef, {
           uid: loggedInUser.uid,
-          name: loggedInUser.displayName || "",
+          name: loggedInUser.displayName || loggedInUser.email?.split('@')[0] || "",
           email: loggedInUser.email || "",
           role: userSnap.exists() ? userSnap.data().role : "user",
           totalPoints: userSnap.exists() ? userSnap.data().totalPoints : 0,
