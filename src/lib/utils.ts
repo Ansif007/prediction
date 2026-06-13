@@ -45,6 +45,7 @@ export function getTeamFlag(teamName: string) {
     .trim()
     .toLowerCase()
     .replace(/&/g, "and")
+    .replace(/ç/g, "c")
     .replace(/\s+/g, " ")
     .replace(/[^a-z0-9 ]/g, "");
 
