@@ -62,6 +62,9 @@ export default function Dashboard() {
           ...(docItem.data() as Omit<Match, "id">),
         }));
         matchList.sort((a: Match, b: Match) => {
+          const aDone = a.status === 'completed' ? 1 : 0;
+          const bDone = b.status === 'completed' ? 1 : 0;
+          if (aDone !== bDone) return aDone - bDone;
           const timeA = a.kickoffTime instanceof Timestamp ? a.kickoffTime.toDate().getTime() : new Date(a.kickoffTime as string | number | Date).getTime();
           const timeB = b.kickoffTime instanceof Timestamp ? b.kickoffTime.toDate().getTime() : new Date(b.kickoffTime as string | number | Date).getTime();
           return timeA - timeB;

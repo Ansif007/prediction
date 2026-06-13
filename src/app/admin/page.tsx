@@ -724,6 +724,9 @@ export default function AdminPage() {
                 </thead>
                 <tbody className="divide-y divide-red-50">
                   {matches.sort((a,b) => {
+                    const aDone = a.status === 'completed' ? 1 : 0;
+                    const bDone = b.status === 'completed' ? 1 : 0;
+                    if (aDone !== bDone) return aDone - bDone;
                     const timeA = a.kickoffTime instanceof Timestamp ? a.kickoffTime.toDate().getTime() : new Date(a.kickoffTime as string).getTime();
                     const timeB = b.kickoffTime instanceof Timestamp ? b.kickoffTime.toDate().getTime() : new Date(b.kickoffTime as string).getTime();
                     return timeA - timeB;
