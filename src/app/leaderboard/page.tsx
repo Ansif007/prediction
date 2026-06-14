@@ -147,6 +147,7 @@ export default function Leaderboard() {
     );
   }
 
+  const userRankMap = new Map(users.map((u, i) => [u.id, i + 1]));
   const filteredUsers = searchQuery
     ? users.filter(u => u.name.toLowerCase().includes(searchQuery.toLowerCase()))
     : users;
@@ -215,7 +216,7 @@ export default function Leaderboard() {
             {topThree[0] && (
               <PodiumCard 
                 user={topThree[0]} 
-                rank={1} 
+                rank={userRankMap.get(topThree[0]?.id) ?? 0} 
                 icon={<Trophy className="w-8 h-8 md:w-12 md:h-12 text-yellow-500" />} 
                 height="h-auto md:h-80"
                 isGold
@@ -227,7 +228,7 @@ export default function Leaderboard() {
             {topThree[1] && (
               <PodiumCard 
                 user={topThree[1]} 
-                rank={2} 
+                rank={userRankMap.get(topThree[1]?.id) ?? 0} 
                 icon={<Medal className="w-6 h-6 md:w-8 md:h-8 text-red-200" />} 
                 height="h-auto md:h-64"
                 delay={0.2}
@@ -238,7 +239,7 @@ export default function Leaderboard() {
             {topThree[2] && (
               <PodiumCard 
                 user={topThree[2]} 
-                rank={3} 
+                rank={userRankMap.get(topThree[2]?.id) ?? 0} 
                 icon={<Award className="w-6 h-6 md:w-8 md:h-8 text-red-400" />} 
                 height="h-auto md:h-56"
                 delay={0.3}
@@ -259,7 +260,7 @@ export default function Leaderboard() {
               >
                 <div className="flex items-center gap-4 md:gap-6">
                   <span className="text-xl md:text-2xl font-black italic text-red-100 font-bebas w-6 md:w-8">
-                    #{index + 4}
+                    #{userRankMap.get(user.id) ?? 0}
                   </span>
                   <div className="flex items-center gap-3 md:gap-4">
                     <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-red-50 flex items-center justify-center border border-red-100 shrink-0">

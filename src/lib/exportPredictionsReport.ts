@@ -95,10 +95,13 @@ export async function exportMasterPredictionsReport(
       status,
       values: [
         prediction.id,
-        user ? `${user.name} (${user.employeeId || prediction.uid})` : prediction.uid,
+        prediction.uid,
+        user?.name || 'Unknown',
+        user?.employeeId || 'N/A',
         match ? `${match.teamA} vs ${match.teamB}` : prediction.matchId,
         prediction.winnerPrediction,
         prediction.goalsPrediction,
+        prediction.createdAt ? new Date(prediction.createdAt).toLocaleString() : 'N/A',
         status,
         prediction.pointsEarned ?? 0,
       ] as (string | number)[],
@@ -111,10 +114,13 @@ export async function exportMasterPredictionsReport(
 
   const headers = [
     "Prediction ID",
-    "User Name / Reference ID",
+    "Reference ID",
+    "Name",
+    "Employee ID",
     "Match Details",
     "Predicted Winner",
     "Predicted Score",
+    "Predicted At",
     "Outcome Status",
     "Points Awarded",
   ];
@@ -143,9 +149,12 @@ export async function exportMasterPredictionsReport(
   masterSheet["!cols"] = [
     { wch: 28 },
     { wch: 32 },
+    { wch: 25 },
+    { wch: 20 },
     { wch: 28 },
     { wch: 18 },
     { wch: 16 },
+    { wch: 22 },
     { wch: 18 },
     { wch: 16 },
   ];
