@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { auth, db } from "@/lib/firebase";
-import { doc, getDoc, updateDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { doc, getDoc, setDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { motion } from "framer-motion";
 import { ShieldCheck, User as UserIcon, Send, Building2 } from "lucide-react";
@@ -73,11 +73,11 @@ export default function SetupPage() {
       }
 
       const userRef = doc(db, "users", userId);
-      await updateDoc(userRef, {
+      await setDoc(userRef, {
         employeeId: cleanId,
         department: department,
-        profileSetup: true
-      });
+        profileSetup: true,
+      }, { merge: true });
 
       router.replace("/dashboard");
     } catch (error) {

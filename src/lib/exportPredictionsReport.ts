@@ -1,5 +1,5 @@
 import * as XLSX from "xlsx-js-style";
-import { collection, getDocs, Firestore } from "firebase/firestore";
+import { collection, getDocs, Firestore, Timestamp } from "firebase/firestore";
 import { Match, Prediction, UserData } from "@/types";
 
 const HEADER_FILL = { fgColor: { rgb: "1B365D" } };
@@ -60,6 +60,20 @@ function buildSummarySheet(total: number, pending: number, settled: number) {
   return ws;
 }
 
+function formatToIST(value: string | Timestamp | undefined | null): string {
+  if (!value) return 'N/A';
+  const date = typeof value === 'string' ? new Date(value) : value.toDate();
+  return date.toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
+}
+
 function getOutcomeStatus(prediction: Prediction, match?: Match): "Pending" | "Settled" {
   if (prediction.pointsAwarded || match?.status === "completed") {
     return "Settled";
@@ -95,13 +109,12 @@ export async function exportMasterPredictionsReport(
       status,
       values: [
         prediction.id,
-        prediction.uid,
+        user?.employeeId || prediction.uid || 'N/A',
         user?.name || 'Unknown',
-        user?.employeeId || 'N/A',
         match ? `${match.teamA} vs ${match.teamB}` : prediction.matchId,
         prediction.winnerPrediction,
         prediction.goalsPrediction,
-        prediction.createdAt ? new Date(prediction.createdAt).toLocaleString() : 'N/A',
+        formatToIST(prediction.updatedAt),
         status,
         prediction.pointsEarned ?? 0,
       ] as (string | number)[],
@@ -114,13 +127,12 @@ export async function exportMasterPredictionsReport(
 
   const headers = [
     "Prediction ID",
-    "Reference ID",
-    "Name",
-    "Employee ID",
+    "Employee ID / Reference",
+    "User Name",
     "Match Details",
     "Predicted Winner",
     "Predicted Score",
-    "Predicted At",
+    "Updated At",
     "Outcome Status",
     "Points Awarded",
   ];
@@ -148,9 +160,8 @@ export async function exportMasterPredictionsReport(
   });
   masterSheet["!cols"] = [
     { wch: 28 },
-    { wch: 32 },
+    { wch: 28 },
     { wch: 25 },
-    { wch: 20 },
     { wch: 28 },
     { wch: 18 },
     { wch: 16 },

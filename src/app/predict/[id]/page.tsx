@@ -153,9 +153,13 @@ export default function PredictPage({
       showToast("Battle Prediction Locked!", "success");
       setShowAddSuccess(true);
       setTimeout(() => router.push("/dashboard"), 1200);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error saving prediction:", error);
-      showToast("Deployment Failed. Try again.", "error");
+      if ((error as { code?: string })?.code === "permission-denied") {
+        showToast("Match already started — predictions locked.", "error");
+      } else {
+        showToast("Deployment Failed. Try again.", "error");
+      }
     } finally {
       setSubmitting(false);
     }
