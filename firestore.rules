@@ -22,7 +22,7 @@ service cloud.firestore {
       allow create: if isSignedIn() && isOwner(userId);
       allow update: if isAdmin() || (isOwner(userId) && 
         // Prevent users from changing their own role or totalPoints
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'totalPoints', 'employeeId', 'department'])
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'totalPoints'])
       );
       allow delete: if isAdmin();
     }
