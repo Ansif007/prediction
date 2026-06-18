@@ -67,5 +67,16 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin();
     }
+
+    // Round leaderboard caches
+    match /roundResults/{roundId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /roundWinners/{roundId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
   }
 }

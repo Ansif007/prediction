@@ -28,7 +28,8 @@ import {
 import Link from "next/link";
 import * as XLSX from 'xlsx';
 import { Match, UserData, Prediction, DeptData, Notice } from "@/types";
-import { formatKickoff, WORLD_CUP_2026_TEAMS, normalizeDepartment, formatDepartmentDisplay } from "@/lib/utils";
+import { formatKickoff, WORLD_CUP_2026_TEAMS, formatDepartmentDisplay, getRoundFromMatchNumber, ROUNDS } from "@/lib/utils";
+import { computeLeaderboard, computeDepartmentRankings, getRoundTopThree } from "@/lib/leaderboard";
 import { exportMasterPredictionsReport } from "@/lib/exportPredictionsReport";
 import { useMobileBackToHome } from "@/hooks/useMobileBackToHome";
 
@@ -52,6 +53,8 @@ export default function AdminPage() {
   const [matchTab, setMatchTab] = useState<'upcoming' | 'completed'>('upcoming');
   const [isLeaderboardEnabled, setIsLeaderboardEnabled] = useState(true);
   const [togglingLeaderboard, setTogglingLeaderboard] = useState(false);
+  const [recalculatingRounds, setRecalculatingRounds] = useState(false);
+  const [isAssigningNumbers, setIsAssigningNumbers] = useState(false);
   
   const [globalStats, setGlobalStats] = useState({
     totalUsers: 0,
@@ -65,6 +68,7 @@ export default function AdminPage() {
     teamA: "",
     teamB: "",
     kickoffTime: "",
+    matchNumber: "",
   });
 
   // Notice Form State
@@ -261,14 +265,16 @@ export default function AdminPage() {
     
     try {
       await addDoc(collection(db, "matches"), {
-        ...matchForm,
+        teamA: matchForm.teamA,
+        teamB: matchForm.teamB,
         kickoffTime: Timestamp.fromDate(new Date(matchForm.kickoffTime)),
+        matchNumber: matchForm.matchNumber ? parseInt(matchForm.matchNumber, 10) : null,
         status: "upcoming",
         result: null,
         totalGoalsResult: null,
       });
       setShowAddForm(false);
-      setMatchForm({ teamA: "", teamB: "", kickoffTime: "" });
+      setMatchForm({ teamA: "", teamB: "", kickoffTime: "", matchNumber: "" });
     } catch (error) {
       console.error("Error adding match:", error);
     }
@@ -284,9 +290,10 @@ export default function AdminPage() {
         teamA: matchForm.teamA,
         teamB: matchForm.teamB,
         kickoffTime: Timestamp.fromDate(new Date(matchForm.kickoffTime)),
+        matchNumber: matchForm.matchNumber ? parseInt(matchForm.matchNumber, 10) : null,
       });
       setEditingMatch(null);
-      setMatchForm({ teamA: "", teamB: "", kickoffTime: "" });
+      setMatchForm({ teamA: "", teamB: "", kickoffTime: "", matchNumber: "" });
     } catch (error) {
       console.error("Error updating match:", error);
     }
@@ -390,6 +397,8 @@ export default function AdminPage() {
         status: "completed"
       });
 
+      const roundId = match?.matchNumber ? getRoundFromMatchNumber(match.matchNumber) : undefined;
+
       for (const predictionDoc of predictionSnapshot.docs) {
         const pred = predictionDoc.data() as Prediction;
         
@@ -402,14 +411,16 @@ export default function AdminPage() {
         if (user?.role === 'admin') continue;
   
         let pointsEarned = 0;
+        const winnerHit = pred.winnerPrediction === result;
+        const goalsHit = pred.goalsPrediction === goals;
         
         // Winner Prediction (2 Points)
-        if (pred.winnerPrediction === result) {
+        if (winnerHit) {
           pointsEarned += 2;
         }
         
         // Goals Prediction (1 Point)
-        if (pred.goalsPrediction === goals) {
+        if (goalsHit) {
           pointsEarned += 1;
         }
   
@@ -417,7 +428,10 @@ export default function AdminPage() {
         const predictionRef = doc(db, "predictions", predictionDoc.id);
         batch.update(predictionRef, {
           pointsAwarded: true,
-          pointsEarned: pointsEarned
+          pointsEarned,
+          winnerHit,
+          goalsHit,
+          ...(roundId && { roundId }),
         });
   
         if (pointsEarned > 0) {
@@ -440,24 +454,115 @@ export default function AdminPage() {
     }
   };
 
+  const handleRecalculateRounds = async () => {
+    if (!confirm("Recalculate all round leaderboards from prediction data? This may take a moment.")) return;
+    setRecalculatingRounds(true);
+    try {
+      const [allMatchesSnap, allPredictionsSnap, allUsersSnap] = await Promise.all([
+        getDocs(collection(db, "matches")),
+        getDocs(collection(db, "predictions")),
+        getDocs(collection(db, "users")),
+      ]);
+
+      const allMatches = allMatchesSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Match));
+      const allPredictions = allPredictionsSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Prediction));
+      const allUsers = allUsersSnap.docs.map((d) => ({ id: d.id, ...d.data() } as UserData));
+
+      for (const round of ROUNDS) {
+        const entries = computeLeaderboard(allUsers, {
+          scope: "round",
+          roundId: round.id,
+          matches: allMatches,
+          predictions: allPredictions,
+        }).slice(0, 50);
+
+        const rankings = entries.map((e) => ({
+          rank: e.rank,
+          userId: e.userId,
+          name: e.name,
+          department: e.department,
+          points: e.points,
+          winnerHits: e.winnerHits,
+          exactScoreHits: e.exactScoreHits,
+        }));
+
+        const top3 = getRoundTopThree(entries);
+
+        await setDoc(doc(db, "roundResults", round.id), {
+          roundId: round.id,
+          rankings,
+          generatedAt: new Date().toISOString(),
+        });
+
+        if (top3.first) {
+          await setDoc(doc(db, "roundWinners", round.id), {
+            roundId: round.id,
+            firstPlaceUserId: top3.first.userId || "",
+            firstPlaceName: top3.first.name || "",
+            firstPlacePoints: top3.first.points || 0,
+            secondPlaceUserId: top3.second?.userId || "",
+            secondPlaceName: top3.second?.name || "",
+            secondPlacePoints: top3.second?.points || 0,
+            thirdPlaceUserId: top3.third?.userId || "",
+            thirdPlaceName: top3.third?.name || "",
+            thirdPlacePoints: top3.third?.points || 0,
+            generatedAt: new Date().toISOString(),
+          });
+        }
+      }
+
+      alert("Round leaderboards recalculated successfully!");
+    } catch (error) {
+      console.error("Error recalculating rounds:", error);
+      alert("Failed to recalculate round leaderboards.");
+    } finally {
+      setRecalculatingRounds(false);
+    }
+  };
+
+  const handleAssignMatchNumbers = async () => {
+    if (!confirm("Assign match numbers (1-104) to all matches sorted by kickoff time? This will overwrite existing match numbers.")) return;
+    setIsAssigningNumbers(true);
+    try {
+      const matchesSnap = await getDocs(collection(db, "matches"));
+      const sorted = matchesSnap.docs
+        .map((d) => ({ id: d.id, ...d.data() } as Match))
+        .sort((a, b) => {
+          const ta = a.kickoffTime instanceof Timestamp ? a.kickoffTime.toDate().getTime() : new Date(a.kickoffTime as string).getTime();
+          const tb = b.kickoffTime instanceof Timestamp ? b.kickoffTime.toDate().getTime() : new Date(b.kickoffTime as string).getTime();
+          return ta - tb;
+        });
+
+      const batch = writeBatch(db);
+      sorted.forEach((match, idx) => {
+        batch.update(doc(db, "matches", match.id), { matchNumber: idx + 1 });
+      });
+      await batch.commit();
+
+      const updatedSnap = await getDocs(collection(db, "matches"));
+      setMatches(updatedSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Match)));
+
+      alert(`Assigned match numbers 1-${sorted.length} successfully!`);
+    } catch (error) {
+      console.error("Error assigning match numbers:", error);
+      alert("Failed to assign match numbers.");
+    } finally {
+      setIsAssigningNumbers(false);
+    }
+  };
+
   const exportToExcel = () => {
     const wb = XLSX.utils.book_new();
     
     // 1. Leaderboard Sheet (Primary Rank File)
-      const leaderboardData = users
-        .filter(u => u.role === 'user')
-        .sort((a, b) => {
-          const pts = b.totalPoints - a.totalPoints;
-          if (pts !== 0) return pts;
-          return (a.name || '').localeCompare(b.name || '');
-        })
-      .map((u, index) => ({
-        Rank: index + 1,
+      const leaderboardEntries = computeLeaderboard(users, { scope: "overall" });
+      const leaderboardData = leaderboardEntries.map(u => ({
+        Rank: u.rank,
         Name: u.name,
-        Employee_Number: u.employeeId || 'N/A',
+        Employee_Number: users.find(usr => (usr.id || usr.uid) === u.userId)?.employeeId || 'N/A',
         Group: u.department ? formatDepartmentDisplay(u.department) : 'N/A',
-        Total_Score: u.totalPoints,
-        Status: u.profileSetup ? 'Verified' : 'Pending Setup'
+        Total_Score: u.points,
+        Status: users.find(usr => (usr.id || usr.uid) === u.userId)?.profileSetup ? 'Verified' : 'Pending Setup'
       }));
     const leaderboardWS = XLSX.utils.json_to_sheet(leaderboardData);
     
@@ -474,20 +579,13 @@ export default function AdminPage() {
     XLSX.utils.book_append_sheet(wb, leaderboardWS, "Official Rankings");
 
     // 2. Department Rankings
-    const deptMap: Record<string, { totalPoints: number; userCount: number }> = {};
-    users.filter(u => u.role === 'user').forEach(u => {
-      const dept = normalizeDepartment(u.department);
-      if (!deptMap[dept]) deptMap[dept] = { totalPoints: 0, userCount: 0 };
-      deptMap[dept].totalPoints += (u.totalPoints || 0);
-      deptMap[dept].userCount += 1;
-    });
-
-    const departmentData = Object.entries(deptMap).map(([name, stats]) => ({
-      Group_Name: formatDepartmentDisplay(name),
-      Total_Points: stats.totalPoints,
-      Participant_Count: stats.userCount,
-      Average_Points: stats.userCount > 0 ? Number((stats.totalPoints / stats.userCount).toFixed(2)) : 0
-    })).sort((a, b) => b.Total_Points - a.Total_Points);
+    const deptRankings = computeDepartmentRankings(users);
+    const departmentData = deptRankings.map(d => ({
+      Group_Name: formatDepartmentDisplay(d.name),
+      Total_Points: d.totalPoints,
+      Participant_Count: d.userCount,
+      Average_Points: d.averagePoints,
+    }));
 
     const deptWS = XLSX.utils.json_to_sheet(departmentData);
     XLSX.utils.book_append_sheet(wb, deptWS, "Group Standings");
@@ -529,7 +627,7 @@ export default function AdminPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-6">
         <ShieldAlert className="w-16 h-16 text-red-600 mb-4" />
-        <h1 className="text-4xl font-black italic tracking-tighter text-red-700 font-bebas">ACCESS DENIED</h1>
+        <h1 className="text-4xl font-black italic tracking-tighter text-red-700 font-sans">ACCESS DENIED</h1>
         <p className="text-red-400 mt-2 font-bold uppercase tracking-widest text-sm">You do not have administrative privileges.</p>
         <Link href="/" className="mt-8 px-8 py-4 bg-red-600 text-white font-black uppercase tracking-widest rounded-2xl">Return Home</Link>
       </div>
@@ -552,7 +650,7 @@ export default function AdminPage() {
               <ShieldAlert className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-black italic tracking-[0.1em] font-bebas leading-none uppercase">Admin <span className="text-red-200">Panel</span></h1>
+              <h1 className="text-xl font-black italic tracking-[0.1em] font-sans leading-none uppercase">Admin <span className="text-red-200">Panel</span></h1>
               <p className="text-[10px] font-bold uppercase tracking-widest opacity-70">Battle Management Console</p>
             </div>
           </div>
@@ -564,7 +662,7 @@ export default function AdminPage() {
               <Download className="w-3.5 h-3.5" />
               Export Excel
             </button>
-            <Link href="/dashboard" className="text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 transition-all">Arena View</Link>
+            <Link href="/" className="text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 transition-all">Home</Link>
           </div>
         </div>
       </div>
@@ -583,7 +681,7 @@ export default function AdminPage() {
                 setActiveTab(tab.id as AdminTab);
                 setSearchTerm("");
               }}
-              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-black italic uppercase tracking-tighter font-bebas transition-all ${
+              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-black italic uppercase tracking-tighter font-sans transition-all ${
                 activeTab === tab.id 
                   ? 'bg-red-600 text-white shadow-lg shadow-red-200' 
                   : 'text-red-300 hover:text-red-500 hover:bg-white'
@@ -608,7 +706,7 @@ export default function AdminPage() {
           <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-center gap-3">
             <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
             <div>
-              <span className="text-sm font-black text-amber-800 font-bebas italic uppercase">{incompleteCount}</span>
+              <span className="text-sm font-black text-amber-800 font-sans italic uppercase">{incompleteCount}</span>
               <span className="text-[11px] font-bold text-amber-700 uppercase tracking-wider ml-1">
                 user{incompleteCount !== 1 ? 's' : ''} with incomplete profile — no Employee ID or Group set
               </span>
@@ -623,7 +721,7 @@ export default function AdminPage() {
               <Trophy className="w-5 h-5 text-red-600" />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-black uppercase tracking-wider text-red-700 font-bebas italic leading-relaxed">
+              <p className="text-sm font-black uppercase tracking-wider text-red-700 font-sans italic leading-relaxed">
                 Enable Leaderboard Visibility
               </p>
               <p className="text-[10px] font-bold text-red-300 uppercase tracking-widest leading-relaxed mt-0.5">
@@ -653,7 +751,7 @@ export default function AdminPage() {
         {/* On-Demand Predictions Export */}
         <div className="mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 md:p-6 bg-gradient-to-r from-slate-800 to-[#1B365D] rounded-2xl border border-slate-700 shadow-lg">
           <div className="min-w-0">
-            <p className="text-sm font-black uppercase tracking-wider text-white font-bebas italic leading-relaxed">
+            <p className="text-sm font-black uppercase tracking-wider text-white font-sans italic leading-relaxed">
               Predictions Data Pipeline
             </p>
             <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest leading-relaxed mt-1">
@@ -677,11 +775,65 @@ export default function AdminPage() {
           </button>
         </div>
 
+        {/* Match Number Assignment */}
+        <div className="mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 md:p-6 bg-gradient-to-r from-blue-800 to-blue-700 rounded-2xl border border-blue-600 shadow-lg">
+          <div className="min-w-0">
+            <p className="text-sm font-black uppercase tracking-wider text-white font-sans italic leading-relaxed">
+              Match Numbering
+            </p>
+            <p className="text-[10px] font-bold text-blue-200 uppercase tracking-widest leading-relaxed mt-1">
+              Assign 1-104 to all matches by kickoff time
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleAssignMatchNumbers}
+            disabled={isAssigningNumbers}
+            className="shrink-0 flex items-center gap-2 px-5 py-3 bg-white text-blue-800 font-black uppercase tracking-widest rounded-xl text-xs shadow-md hover:bg-blue-50 transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {isAssigningNumbers ? (
+              <>
+                <span className="w-4 h-4 border-2 border-blue-800/30 border-t-blue-800 rounded-full animate-spin" />
+                Assigning...
+              </>
+            ) : (
+              <>🔢 Assign Match Numbers</>
+            )}
+          </button>
+        </div>
+
+        {/* Round Leaderboards Recalculation */}
+        <div className="mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 md:p-6 bg-gradient-to-r from-red-800 to-red-700 rounded-2xl border border-red-600 shadow-lg">
+          <div className="min-w-0">
+            <p className="text-sm font-black uppercase tracking-wider text-white font-sans italic leading-relaxed">
+              Round Leaderboards
+            </p>
+            <p className="text-[10px] font-bold text-red-200 uppercase tracking-widest leading-relaxed mt-1">
+              Recalculate standings from prediction data for all rounds
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleRecalculateRounds}
+            disabled={recalculatingRounds}
+            className="shrink-0 flex items-center gap-2 px-5 py-3 bg-white text-red-800 font-black uppercase tracking-widest rounded-xl text-xs shadow-md hover:bg-red-50 transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {recalculatingRounds ? (
+              <>
+                <span className="w-4 h-4 border-2 border-red-800/30 border-t-red-800 rounded-full animate-spin" />
+                Recalculating...
+              </>
+            ) : (
+              <>🔄 Recalculate Round Leaderboards</>
+            )}
+          </button>
+        </div>
+
         {/* Tab Content */}
         <div className="bg-white rounded-[2.5rem] border border-red-50 shadow-xl overflow-hidden">
           {/* Toolbar */}
           <div className="px-8 py-6 border-b border-red-50 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-red-50/30">
-            <h2 className="text-2xl font-black italic tracking-[0.1em] text-red-700 font-bebas uppercase flex items-center gap-3">
+            <h2 className="text-2xl font-black italic tracking-[0.1em] text-red-700 font-sans uppercase flex items-center gap-3">
               {activeTab === 'matches' && <><Settings className="w-6 h-6" /> Match Deployment</>}
               {activeTab === 'users' && <><Users className="w-6 h-6" /> User Roster</>}
               {activeTab === 'notices' && <><Bell className="w-6 h-6" /> Notice Management</>}
@@ -769,7 +921,7 @@ export default function AdminPage() {
                         </div>
                       </td>
                       <td className="px-8 py-6">
-                        <span className="text-lg font-black italic uppercase tracking-tighter text-red-700 font-bebas">
+                        <span className="text-lg font-black italic uppercase tracking-tighter text-red-700 font-sans">
                           {match.teamA} <span className="text-red-300 mx-1">vs</span> {match.teamB}
                         </span>
                       </td>
@@ -831,7 +983,7 @@ export default function AdminPage() {
                         )}
                       </td>
                       <td className="px-8 py-6 text-right">
-                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center justify-end gap-2">
                           {match.status !== 'completed' && (
                             <button 
                               onClick={() => handleSetStatus(match.id, match.status === 'live' ? 'upcoming' : 'live')}
@@ -850,7 +1002,8 @@ export default function AdminPage() {
                                 teamB: match.teamB,
                                 kickoffTime: match.kickoffTime instanceof Timestamp 
                                   ? match.kickoffTime.toDate().toISOString().slice(0, 16)
-                                  : new Date(match.kickoffTime as string).toISOString().slice(0, 16)
+                                  : new Date(match.kickoffTime as string).toISOString().slice(0, 16),
+                                matchNumber: match.matchNumber ? String(match.matchNumber) : "",
                               });
                             }}
                             className="p-2 bg-red-50 text-red-600 rounded-lg"
@@ -892,7 +1045,7 @@ export default function AdminPage() {
                             <Users className="w-5 h-5 text-red-400" />
                           </div>
                           <div>
-                            <div className="text-sm font-black italic uppercase tracking-tighter text-red-700 font-bebas">{user.name}</div>
+                            <div className="text-sm font-black italic uppercase tracking-tighter text-red-700 font-sans">{user.name}</div>
                             <div className="text-[10px] font-bold text-red-300 uppercase tracking-widest">{user.role}</div>
                           </div>
                         </div>
@@ -913,7 +1066,7 @@ export default function AdminPage() {
                       <td className="px-8 py-6">
                         <div className="flex items-center gap-2">
                           <Trophy className="w-4 h-4 text-yellow-500" />
-                          <span className="text-lg font-black italic text-red-600 font-bebas">{user.totalPoints} PTS</span>
+                          <span className="text-lg font-black italic text-red-600 font-sans">{user.totalPoints} PTS</span>
                         </div>
                       </td>
                       <td className="px-8 py-6">
@@ -981,7 +1134,7 @@ export default function AdminPage() {
                         {new Date(notice.createdAt).toLocaleDateString()}
                       </td>
                       <td className="px-8 py-6">
-                        <div className="text-sm font-black italic uppercase tracking-tighter text-red-700 font-bebas">{notice.title}</div>
+                        <div className="text-sm font-black italic uppercase tracking-tighter text-red-700 font-sans">{notice.title}</div>
                         <div className="text-[10px] text-red-300 line-clamp-1">{notice.content}</div>
                       </td>
                       <td className="px-8 py-6">
@@ -996,7 +1149,7 @@ export default function AdminPage() {
                       <td className="px-8 py-6 text-right">
                         <button 
                           onClick={() => handleDeleteNotice(notice.id)}
-                          className="p-2 bg-red-50 text-red-300 hover:text-red-600 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="p-2 bg-red-50 text-red-300 hover:text-red-600 rounded-lg transition-opacity"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -1028,7 +1181,7 @@ export default function AdminPage() {
               onClick={() => {
                 setShowAddForm(false);
                 setEditingMatch(null);
-                setMatchForm({ teamA: "", teamB: "", kickoffTime: "" });
+                setMatchForm({ teamA: "", teamB: "", kickoffTime: "", matchNumber: "" });
               }}
               className="absolute inset-0 bg-red-900/40 backdrop-blur-sm"
             />
@@ -1042,14 +1195,14 @@ export default function AdminPage() {
                 onClick={() => {
                   setShowAddForm(false);
                   setEditingMatch(null);
-                  setMatchForm({ teamA: "", teamB: "", kickoffTime: "" });
+                  setMatchForm({ teamA: "", teamB: "", kickoffTime: "", matchNumber: "" });
                 }}
                 className="absolute top-6 right-6 p-2 text-red-300 hover:text-red-600"
               >
                 <X className="w-6 h-6" />
               </button>
               
-              <h2 className="text-3xl font-black italic tracking-tighter text-red-700 font-bebas mb-6 uppercase">
+              <h2 className="text-3xl font-black italic tracking-tighter text-red-700 font-sans mb-6 uppercase">
                 {editingMatch ? "Update Battle" : "New Battle"}
               </h2>
               
@@ -1091,6 +1244,18 @@ export default function AdminPage() {
                     onChange={(e) => setMatchForm({...matchForm, kickoffTime: e.target.value})}
                   />
                 </div>
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-red-300 mb-1 block pl-1">Match Number (1-104)</label>
+                  <input 
+                    type="number" 
+                    min="1" 
+                    max="104"
+                    placeholder="e.g. 1"
+                    className="w-full px-5 py-3 rounded-xl bg-red-50 border border-red-100 focus:border-red-600 outline-none text-red-700 font-bold placeholder:text-red-200"
+                    value={matchForm.matchNumber}
+                    onChange={(e) => setMatchForm({...matchForm, matchNumber: e.target.value})}
+                  />
+                </div>
                 <button 
                   type="submit"
                   className="w-full py-4 bg-red-600 text-white font-black uppercase tracking-widest rounded-xl mt-4 shadow-xl shadow-red-200"
@@ -1127,7 +1292,7 @@ export default function AdminPage() {
                 <X className="w-6 h-6" />
               </button>
               
-              <h2 className="text-3xl font-black italic tracking-tighter text-red-700 font-bebas mb-6 uppercase">
+              <h2 className="text-3xl font-black italic tracking-tighter text-red-700 font-sans mb-6 uppercase">
                 Edit Participant
               </h2>
               
@@ -1177,7 +1342,7 @@ export default function AdminPage() {
                 <X className="w-6 h-6" />
               </button>
               
-              <h2 className="text-3xl font-black italic tracking-tighter text-red-700 font-bebas mb-6 uppercase flex items-center gap-2">
+              <h2 className="text-3xl font-black italic tracking-tighter text-red-700 font-sans mb-6 uppercase flex items-center gap-2">
                 <Bell className="w-8 h-8" />
                 Broadcast Notice
               </h2>
@@ -1241,7 +1406,7 @@ export default function AdminPage() {
               <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-6">
                 <AlertTriangle className="w-8 h-8 text-red-600" />
               </div>
-              <h2 className="text-2xl font-black italic tracking-tighter text-red-700 font-bebas mb-2 uppercase">Battle Outcome</h2>
+              <h2 className="text-2xl font-black italic tracking-tighter text-red-700 font-sans mb-2 uppercase">Battle Outcome</h2>
               <p className="text-sm text-red-400 font-bold uppercase tracking-wider mb-4">
                 Set final results for <span className="text-red-600">{confirmResult.result}</span>
               </p>
@@ -1297,7 +1462,7 @@ function StatBox({ icon, label, value, color }: { icon: React.ReactNode, label: 
       </div>
       <div>
         <div className="text-[10px] font-black text-red-300 uppercase tracking-widest leading-none mb-1">{label}</div>
-        <div className="text-2xl font-black italic font-bebas text-red-700 leading-none">{value}</div>
+        <div className="text-2xl font-black italic font-sans text-red-700 leading-none">{value}</div>
       </div>
     </div>
   );

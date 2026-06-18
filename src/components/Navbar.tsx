@@ -71,10 +71,10 @@ export default function Navbar() {
             />
           </div>
           <div className="flex flex-col leading-tight">
-            <span className="text-base md:text-lg font-black tracking-[0.05em] text-red-600 uppercase font-bebas whitespace-nowrap">
+            <span className="text-base md:text-lg font-black tracking-[0.05em] text-red-600 uppercase font-sans whitespace-nowrap">
               MRF STAFF RECREATION CLUB
             </span>
-            <span className="text-base md:text-lg font-black tracking-[0.05em] text-red-800 uppercase font-bebas\">
+            <span className="text-base md:text-lg font-black tracking-[0.05em] text-red-800 uppercase font-sans\">
               KOTTAYAM
             </span>
           </div>
@@ -155,7 +155,7 @@ export default function Navbar() {
                   key={item.href}
                   href={item.href}
                   onClick={() => setIsMenuOpen(false)}
-                  className={`flex items-center gap-4 p-4 rounded-2xl text-base font-black italic uppercase tracking-tighter font-bebas ${
+                  className={`flex items-center gap-4 p-4 rounded-2xl text-base font-black italic uppercase tracking-tighter font-sans ${
                     isActive 
                       ? "bg-red-600 text-white" 
                       : "bg-red-50 text-red-600"
@@ -174,7 +174,7 @@ export default function Navbar() {
                     <UserIcon className="w-5 h-5 text-white" />
                   </div>
                   <div className="flex flex-col">
-                    <span className="text-sm font-black italic uppercase tracking-tighter text-red-800 font-bebas leading-none">
+                    <span className="text-sm font-black italic uppercase tracking-tighter text-red-800 font-sans leading-none">
                       {user.displayName}
                     </span>
                     <span className="text-[10px] font-bold text-red-400 uppercase tracking-widest">
@@ -184,7 +184,7 @@ export default function Navbar() {
                 </div>
                 <button
                   onClick={handleLogout}
-                  className="flex items-center justify-center gap-3 w-full py-4 bg-red-50 text-red-600 font-black italic uppercase tracking-tighter font-bebas rounded-2xl border border-red-100"
+                  className="flex items-center justify-center gap-3 w-full py-4 bg-red-50 text-red-600 font-black italic uppercase tracking-tighter font-sans rounded-2xl border border-red-100"
                 >
                   <LogOut className="w-5 h-5" />
                   Sign Out

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { DM_Sans, Bebas_Neue } from "next/font/google";
+import { DM_Sans } from "next/font/google";
 import "./globals.css";
-import Navbar from "../components/Navbar";
+import AppShell from "../components/AppShell";
 import { ToastProvider } from "../components/Toast";
 
 const dmSans = DM_Sans({
@@ -10,15 +10,9 @@ const dmSans = DM_Sans({
   variable: "--font-dm-sans",
 });
 
-const bebasNeue = Bebas_Neue({
-  subsets: ["latin"],
-  weight: ["400"],
-  variable: "--font-bebas-neue",
-});
-
 export const metadata: Metadata = {
-  title: "MRF SRC FIFA WORLD CUP'26",
-  description: "Match prediction contest for MRF SRC, Kottayam",
+  title: "MRF STAFF RECREATION CLUB FIFA WORLD CUP'26",
+  description: "Match prediction contest for MRF Staff Recreation Club, Kottayam",
 };
 
 export default function RootLayout({
@@ -27,13 +21,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${dmSans.variable} ${bebasNeue.variable}`}>
+    <html lang="en" className={dmSans.variable}>
       <body className="antialiased font-sans">
         <ToastProvider>
-          <Navbar />
-          <div className="pt-20 min-h-screen">
+          <AppShell>
             {children}
-          </div>
+          </AppShell>
         </ToastProvider>
       </body>
     </html>

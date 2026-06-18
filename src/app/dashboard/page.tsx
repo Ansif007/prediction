@@ -16,8 +16,9 @@ import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { Calendar, ChevronRight, Trophy, Star, CheckCircle2 } from "lucide-react";
-import { Match } from "@/types";
+import { Match, UserData } from "@/types";
 import { formatKickoff, getTeamFlag } from "@/lib/utils";
+import { computeLeaderboard, getUserRoundPoints } from "@/lib/leaderboard";
 import { useMobileBackToHome } from "@/hooks/useMobileBackToHome";
 import { useRequireSetup } from "@/hooks/useRequireSetup";
 
@@ -80,20 +81,13 @@ export default function Dashboard() {
           const usersSnap = await getDocs(query(collection(db, "users"), where("role", "==", "user")));
           if (cancelled) return;
 
-          const allUsers = usersSnap.docs.map(docItem => ({
+          const usersForRanking = usersSnap.docs.map(docItem => ({
+            ...(docItem.data() as UserData),
             id: docItem.id,
-            name: (docItem.data().name as string) || '',
-            points: (docItem.data().totalPoints as number) || 0
-          })).sort((a, b) => {
-            const pts = b.points - a.points;
-            if (pts !== 0) return pts;
-            return (a.name || '').localeCompare(b.name || '');
-          });
-
-          const currentUserData = allUsers.find(u => u.id === user.uid);
-          if (currentUserData) {
-            setUserPoints(currentUserData.points);
-          }
+          }));
+          const entries = computeLeaderboard(usersForRanking, { scope: "overall" });
+          const userPointsVal = getUserRoundPoints(entries, user.uid);
+          setUserPoints(userPointsVal);
         } else {
           setPredictedMatchIds(new Set());
         }
@@ -149,7 +143,7 @@ export default function Dashboard() {
             </div>
             Live Arena
           </div>
-          <h1 className="text-4xl md:text-6xl font-black italic tracking-[0.1em] text-red-700 font-bebas leading-relaxed md:leading-loose uppercase">
+          <h1 className="text-4xl md:text-6xl font-black italic tracking-[0.1em] text-red-700 font-sans leading-relaxed md:leading-loose uppercase">
             Battle Arena
           </h1>
           {isAdmin ? (
@@ -171,7 +165,7 @@ export default function Dashboard() {
             </div>
             <div>
               <div className="text-[8px] md:text-[10px] font-bold text-red-300 uppercase tracking-widest leading-relaxed mb-1">Your Points</div>
-              <div className="text-lg md:text-xl font-black text-red-700 leading-relaxed font-bebas">{userPoints} PTS</div>
+              <div className="text-lg md:text-xl font-black text-red-700 leading-relaxed font-sans">{userPoints} PTS</div>
             </div>
           </div>
         </div>
@@ -239,7 +233,7 @@ export default function Dashboard() {
             <div className="w-20 h-20 bg-red-50 rounded-3xl flex items-center justify-center mx-auto mb-6">
               <Calendar className="w-10 h-10 text-red-200" />
             </div>
-            <h3 className="text-2xl font-black italic uppercase tracking-tighter text-red-700 font-bebas">No Battles Scheduled</h3>
+            <h3 className="text-2xl font-black italic uppercase tracking-tighter text-red-700 font-sans">No Battles Scheduled</h3>
             <p className="text-red-300 font-bold uppercase tracking-widest text-xs mt-2">Check back soon for upcoming matches.</p>
           </div>
         )}
@@ -315,7 +309,7 @@ function MatchCardContent({ match, currentTime, isPredicted }: { match: Match, c
               className="object-cover"
             />
           </div>
-          <span className="text-lg md:text-4xl font-black italic uppercase tracking-wide text-red-700 font-bebas leading-relaxed md:leading-loose break-words min-w-0 max-w-full">
+          <span className="text-lg md:text-4xl font-black italic uppercase tracking-wide text-red-700 font-sans leading-relaxed md:leading-loose break-words min-w-0 max-w-full">
             {match.teamA}
           </span>
         </div>
@@ -336,7 +330,7 @@ function MatchCardContent({ match, currentTime, isPredicted }: { match: Match, c
               className="object-cover"
             />
           </div>
-          <span className="text-lg md:text-4xl font-black italic uppercase tracking-wide text-red-700 font-bebas leading-relaxed md:leading-loose break-words min-w-0 max-w-full md:order-2 order-2">
+          <span className="text-lg md:text-4xl font-black italic uppercase tracking-wide text-red-700 font-sans leading-relaxed md:leading-loose break-words min-w-0 max-w-full md:order-2 order-2">
             {match.teamB}
           </span>
         </div>

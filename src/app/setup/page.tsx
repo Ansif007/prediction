@@ -107,7 +107,7 @@ export default function SetupPage() {
           <ShieldCheck className="w-8 h-8 md:w-10 md:h-10 text-white" />
         </div>
 
-        <h2 className="text-3xl md:text-4xl font-black italic tracking-tighter text-red-700 font-bebas mb-3 uppercase leading-none">
+        <h2 className="text-3xl md:text-4xl font-black italic tracking-tighter text-red-700 font-sans mb-3 uppercase leading-none">
           VERIFY YOUR <span className="text-red-600">IDENTITY</span>
         </h2>
 
