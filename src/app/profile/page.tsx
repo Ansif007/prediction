@@ -11,7 +11,6 @@ import { useRouter } from "next/navigation";
 import { UserData, Match } from "@/types";
 import { useToast } from "@/components/Toast";
 import { formatDepartmentDisplay } from "@/lib/utils";
-import { computeLeaderboard, getUserRoundRank } from "@/lib/leaderboard";
 import { useMobileBackToHome } from "@/hooks/useMobileBackToHome";
 import { useRequireSetup } from "@/hooks/useRequireSetup";
 
@@ -91,10 +90,16 @@ export default function ProfilePage() {
 
           // Calculate rank
           const allUsersSnap = await getDocs(query(collection(db, "users"), where("role", "==", "user")));
-          const usersForRanking = allUsersSnap.docs.map(d => ({ ...(d.data() as UserData), id: d.id }));
-          const leaderboardEntries = computeLeaderboard(usersForRanking, { scope: "overall" });
-          const rank = getUserRoundRank(leaderboardEntries, user.uid);
-          setUserRank(rank);
+          const allUsersList = allUsersSnap.docs
+            .filter(d => d.data().showOnLeaderboard !== false)
+            .map(d => ({ id: d.id, points: (d.data().totalPoints as number) || 0, name: (d.data().name as string) || '' }))
+            .sort((a, b) => {
+              const pts = b.points - a.points;
+              if (pts !== 0) return pts;
+              return a.name.localeCompare(b.name);
+            });
+          const userIndex = allUsersList.findIndex(u => u.id === user.uid);
+          if (userIndex !== -1) setUserRank(userIndex + 1);
         } catch (error) {
           console.error("Error fetching stats:", error);
         }
@@ -155,7 +160,7 @@ export default function ProfilePage() {
   if (!profile) return null;
 
   return (
-    <main className="max-w-4xl mx-auto px-6 py-8 md:py-12 overflow-visible">
+    <main className="max-w-2xl mx-auto px-6 py-8 md:py-12 overflow-visible">
       <Link 
         href="/dashboard" 
         className="inline-flex items-center gap-2 text-red-300 hover:text-red-600 font-bold uppercase tracking-widest text-[10px] md:text-xs mb-8 transition-colors group"
@@ -175,7 +180,7 @@ export default function ProfilePage() {
               <BadgeCheck className="w-3 h-3" />
               Official Participant
             </div>
-            <h1 className="text-4xl md:text-5xl font-black italic tracking-[0.1em] text-red-700 font-sans leading-[1.15] uppercase overflow-visible">
+            <h1 className="text-4xl md:text-5xl font-black italic tracking-[0.1em] text-red-700 font-bebas leading-[1.15] uppercase overflow-visible">
               {profile.name || "USER"}
             </h1>
             <p className="text-[10px] md:text-xs text-red-400 font-bold uppercase tracking-[0.2em]">
@@ -194,10 +199,10 @@ export default function ProfilePage() {
         >
           <div className="space-y-1">
             <div className="text-[10px] font-black uppercase tracking-widest text-red-100">Total Points</div>
-            <div className="text-5xl font-black italic font-sans">{profile.totalPoints}</div>
+            <div className="text-5xl font-black italic font-bebas">{profile.totalPoints}</div>
             <div className="flex items-center gap-1.5 pt-1">
               <Trophy className="w-4 h-4 text-yellow-400" />
-              <span className="text-sm font-black italic font-sans text-red-100">Rank #{userRank}</span>
+              <span className="text-sm font-black italic font-bebas text-red-100">Rank #{userRank}</span>
             </div>
           </div>
           <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center">
@@ -321,7 +326,7 @@ function StatCard({ label, value, icon, bgColor, borderColor, textColor }: { lab
       <div className="w-8 h-8 bg-white rounded-xl flex items-center justify-center shadow-sm mb-1">
         {icon}
       </div>
-      <div className={`text-xl font-black font-sans leading-none ${textColor}`}>{value}</div>
+      <div className={`text-xl font-black font-bebas leading-none ${textColor}`}>{value}</div>
       <div className="text-[8px] font-bold uppercase tracking-widest text-red-300">{label}</div>
     </div>
   );

@@ -93,7 +93,8 @@ export default function PredictPage({
           ? data.kickoffTime.toDate() 
           : new Date(data.kickoffTime);
         
-        setIsLocked(new Date() > kickoff || data.status === 'completed' || data.status === 'live');
+        const lockTime = new Date(kickoff.getTime() - 1 * 60000);
+        setIsLocked(new Date() > lockTime || data.status === 'completed' || data.status === 'live');
 
         if (user) {
           const predRef = doc(db, "predictions", `${user.uid}_${id}`);
@@ -197,7 +198,7 @@ export default function PredictPage({
                </div>
               
               <div className="space-y-2">
-                <h1 className="text-3xl md:text-4xl font-black uppercase tracking-[0.2em] text-red-700 font-sans leading-none">
+                <h1 className="text-3xl md:text-4xl font-black uppercase tracking-[0.2em] text-red-700 font-bebas leading-none">
                   Battle Results
                 </h1>
                 <p className="text-[10px] font-bold text-red-300 uppercase tracking-[0.3em]">
@@ -209,20 +210,20 @@ export default function PredictPage({
                 <div className="p-8 md:p-12 grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12">
                   <div className="space-y-1 text-center md:text-left">
                     <span className="text-[10px] font-black uppercase tracking-[0.3em] text-red-300">Winner</span>
-                    <div className="text-3xl font-black italic uppercase tracking-wider text-red-700 font-sans">
+                    <div className="text-3xl font-black italic uppercase tracking-wider text-red-700 font-bebas">
                       {match.result || "DRAW"}
                     </div>
                   </div>
                   <div className="space-y-1 text-center md:text-left">
                     <span className="text-[10px] font-black uppercase tracking-[0.3em] text-red-300">Total Goals</span>
-                    <div className="text-3xl font-black italic uppercase tracking-wider text-red-700 font-sans">
+                    <div className="text-3xl font-black italic uppercase tracking-wider text-red-700 font-bebas">
                       {match.totalGoalsResult}
                     </div>
                   </div>
                   {pointsEarned !== null && (
                     <div className="col-span-full pt-8 border-t border-red-100 flex flex-col items-center gap-2">
                       <span className="text-[10px] font-black uppercase tracking-[0.3em] text-green-600">Your Prediction Performance</span>
-                      <div className="text-5xl font-black italic text-green-600 font-sans">
+                      <div className="text-5xl font-black italic text-green-600 font-bebas">
                         +{pointsEarned} <span className="text-xl">PTS</span>
                       </div>
                     </div>
@@ -252,7 +253,7 @@ export default function PredictPage({
                 </div>
               </div>
               
-              <h1 className="text-4xl md:text-6xl font-black italic tracking-[0.1em] text-red-700 font-sans uppercase leading-[1.1] flex flex-wrap items-center justify-center gap-4 overflow-visible">
+              <h1 className="text-4xl md:text-6xl font-black italic tracking-[0.1em] text-red-700 font-bebas uppercase leading-[1.1] flex flex-wrap items-center justify-center gap-4 overflow-visible">
                 <div className="flex items-center gap-3">
                   <div className="relative w-10 h-6 md:w-16 md:h-10 overflow-hidden rounded shadow-sm">
                     <Image src={getTeamFlag(match.teamA)} alt={match.teamA} fill className="object-cover" />
@@ -274,7 +275,7 @@ export default function PredictPage({
         <div className="p-6 md:p-12 space-y-12">
           {/* Winner Prediction */}
           <section>
-            <h2 className="text-xl font-black italic tracking-[0.1em] text-red-700 font-sans mb-6 uppercase flex items-center gap-3">
+            <h2 className="text-xl font-black italic tracking-[0.1em] text-red-700 font-bebas mb-6 uppercase flex items-center gap-3">
               <Target className="w-5 h-5 text-red-600" />
               PREDICT THE OUTCOME OF THE MATCH <span className="text-xs text-red-400 normal-case font-bold ml-auto tracking-normal">(2 Points)</span>
             </h2>
@@ -295,7 +296,7 @@ export default function PredictPage({
                       <CheckCircle2 className="w-5 h-5" />
                     </div>
                   )}
-                  <div className={`text-lg font-black italic uppercase tracking-tighter font-sans ${
+                  <div className={`text-lg font-black italic uppercase tracking-tighter font-bebas ${
                     prediction === option ? "text-white" : "text-red-700"
                   }`}>
                     {option}
@@ -307,7 +308,7 @@ export default function PredictPage({
 
           {/* Goals Prediction */}
           <section>
-            <h2 className="text-xl font-black italic tracking-[0.1em] text-red-700 font-sans mb-6 uppercase flex items-center gap-3">
+            <h2 className="text-xl font-black italic tracking-[0.1em] text-red-700 font-bebas mb-6 uppercase flex items-center gap-3">
               <Trophy className="w-5 h-5 text-red-600" />
               HOW MANY GOALS WOULD BE SCORED IN TOTAL ? <span className="text-xs text-red-400 normal-case font-bold ml-auto tracking-normal">(1 Point)</span>
             </h2>
@@ -328,7 +329,7 @@ export default function PredictPage({
                       <CheckCircle2 className="w-4 h-4" />
                     </div>
                   )}
-                  <div className="text-xl md:text-2xl font-black font-sans">{num}</div>
+                  <div className="text-xl md:text-2xl font-black font-bebas">{num}</div>
                   <div className={`text-[8px] font-bold uppercase tracking-widest ${
                     goals === num ? "text-red-100" : "text-red-300"
                   }`}>Goals</div>

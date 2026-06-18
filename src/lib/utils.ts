@@ -1,5 +1,4 @@
 import { Timestamp } from "firebase/firestore";
-import { LeaderboardPeriod, Match } from "@/types";
 
 export const DEPARTMENT_OTHER = "others";
 const DEPARTMENT_OTHER_LEGACY = "OTHER (SAFETY, SECURITY, HR)";
@@ -77,45 +76,6 @@ export function getTeamFlag(teamName: string) {
   };
   const code = codes[normalized];
   return code ? `https://flagcdn.com/w160/${code}.png` : `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(teamName)}&backgroundColor=fef2f2`;
-}
-
-export const ROUNDS: LeaderboardPeriod[] = [
-  { id: "round1", name: "Round 1", startMatch: 1, endMatch: 24 },
-  { id: "round2", name: "Round 2", startMatch: 25, endMatch: 48 },
-  { id: "round3", name: "Round 3", startMatch: 49, endMatch: 72 },
-  { id: "round4", name: "Round 4", startMatch: 73, endMatch: 96 },
-  { id: "knockout", name: "Knockout", startMatch: 97, endMatch: 104 },
-];
-
-export function getRoundFromMatchNumber(matchNumber: number): string {
-  if (matchNumber <= 24) return "round1";
-  if (matchNumber <= 48) return "round2";
-  if (matchNumber <= 72) return "round3";
-  if (matchNumber <= 96) return "round4";
-  return "knockout";
-}
-
-export function getCurrentRoundFromMatches(matches: Match[]): string {
-  const upcoming = matches
-    .filter((m) => m.status !== "completed")
-    .sort((a, b) => {
-      const ta = a.kickoffTime instanceof Timestamp
-        ? a.kickoffTime.toDate().getTime()
-        : new Date(a.kickoffTime as string).getTime();
-      const tb = b.kickoffTime instanceof Timestamp
-        ? b.kickoffTime.toDate().getTime()
-        : new Date(b.kickoffTime as string).getTime();
-      return ta - tb;
-    });
-  if (upcoming.length === 0) return "knockout";
-  const nextMn = upcoming[0].matchNumber;
-  if (!nextMn) return "round1";
-  return getRoundFromMatchNumber(nextMn);
-}
-
-export function getRoundLabel(roundId: string): string {
-  const round = ROUNDS.find((r) => r.id === roundId);
-  return round?.name || roundId;
 }
 
 export const WORLD_CUP_2026_TEAMS = [

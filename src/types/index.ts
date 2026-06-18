@@ -8,7 +8,6 @@ export interface Match {
   status: string;
   result: string | null;
   totalGoalsResult?: string;
-  matchNumber?: number;
   stats?: {
     teamA: number;
     draw: number;
@@ -42,9 +41,6 @@ export interface Prediction {
   updatedAt?: Timestamp;
   pointsAwarded?: boolean;
   pointsEarned?: number;
-  winnerHit?: boolean;
-  goalsHit?: boolean;
-  roundId?: string;
   prediction?: string; // Legacy compatibility
 }
 
@@ -65,41 +61,4 @@ export interface Notice {
 
 export interface AppSettings {
   isLeaderboardEnabled: boolean;
-}
-
-export interface LeaderboardPeriod {
-  id: string;
-  name: string;
-  startMatch: number;
-  endMatch: number;
-}
-
-export interface LeaderboardEntry {
-  rank: number;
-  userId: string;
-  name: string;
-  department?: string;
-  points: number;
-  winnerHits: number;
-  exactScoreHits: number;
-}
-
-export interface RoundResult {
-  roundId: string;
-  rankings: LeaderboardEntry[];
-  generatedAt: string;
-}
-
-export interface RoundWinner {
-  roundId: string;
-  firstPlaceUserId: string;
-  firstPlaceName: string;
-  firstPlacePoints: number;
-  secondPlaceUserId: string;
-  secondPlaceName: string;
-  secondPlacePoints: number;
-  thirdPlaceUserId: string;
-  thirdPlaceName: string;
-  thirdPlacePoints: number;
-  generatedAt: string;
 }
