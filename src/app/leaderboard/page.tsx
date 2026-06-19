@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { collection, getDocs, query, doc, getDoc } from "firebase/firestore";
+import { useEffect, useState, useCallback } from "react";
+import { collection, getDocs, doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { motion } from "framer-motion";
 import { Trophy, Medal, Award, User as UserIcon, Star, TrendingUp, Users as UsersIcon, Building2, EyeOff, Search } from "lucide-react";
-import { UserData, DeptData } from "@/types";
-import { normalizeDepartment, formatDepartmentDisplay } from "@/lib/utils";
+import { RoundView, RoundPointsData, UserData, DeptData } from "@/types";
+import { normalizeDepartment, formatDepartmentDisplay, ROUND_LABELS } from "@/lib/utils";
 import { useMobileBackToHome } from "@/hooks/useMobileBackToHome";
 import { useRequireSetup } from "@/hooks/useRequireSetup";
 import { useAuth } from "@/contexts/AuthContext";
@@ -23,6 +23,33 @@ export default function Leaderboard() {
   const [error, setError] = useState<string | null>(null);
   const [isLeaderboardEnabled, setIsLeaderboardEnabled] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [roundView, setRoundView] = useState<RoundView>("overall");
+  const [allData, setAllData] = useState<UserData[]>([]);
+  const [roundPointsMap, setRoundPointsMap] = useState<Record<string, RoundPointsData>>({});
+
+  const sortAndSet = useCallback((data: UserData[], round: RoundView) => {
+    const sorted = [...data]
+      .map((u) => ({
+        ...u,
+        totalPoints:
+          round === "overall"
+            ? u.totalPoints || 0
+            : (roundPointsMap[u.id]?.[round as keyof RoundPointsData] as number) || 0,
+      }))
+      .sort(
+        (a, b) => (b.totalPoints || 0) - (a.totalPoints || 0) || a.name.localeCompare(b.name)
+      );
+    setUsers(sorted);
+  }, [roundPointsMap]);
+
+  useEffect(() => {
+    if (allData.length === 0) return;
+    sortAndSet(allData, roundView);
+  }, [roundView, sortAndSet]);
+
+  useEffect(() => {
+    if (roundView !== "overall") setView("individual");
+  }, [roundView]);
 
   useEffect(() => {
     const loadLeaderboard = async () => {
@@ -32,30 +59,32 @@ export default function Leaderboard() {
           settingsSnap.exists() ? settingsSnap.data().isLeaderboardEnabled !== false : true
         );
 
-        // Try cache first — stale is ok while re-fetching
-        const cached = getCache<UserData[]>("leaderboard_users");
+        // Try cache first
+        const cached = getCache<UserData[]>("leaderboard_users_v2");
         let allUsers: UserData[];
 
         if (cached && !cached.stale) {
           allUsers = cached.data;
         } else {
-          const q = query(collection(db, "users"));
-          const snapshot = await getDocs(q);
+          const snapshot = await getDocs(collection(db, "users"));
           allUsers = snapshot.docs
-            .map((d) => ({ ...(d.data() as UserData), id: d.id }))
-            .filter(u => u.role !== "admin" && u.showOnLeaderboard !== false);
-          setCache("leaderboard_users", allUsers);
+            .map((d) => ({ ...(d.data() as Omit<UserData, "id">), id: d.id }))
+            .filter(u => u.showOnLeaderboard !== false);
+          setCache("leaderboard_users_v2", allUsers);
         }
 
-        // Calculate Individual Leaderboard
-        const individualData = [...allUsers].sort((a, b) => {
-          const pts = (b.totalPoints || 0) - (a.totalPoints || 0);
-          if (pts !== 0) return pts;
-          return (a.name || '').localeCompare(b.name || '');
+        // Fetch round points for round tab switching
+        const rpSnapshot = await getDocs(collection(db, "roundPoints"));
+        const rpMap: Record<string, RoundPointsData> = {};
+        rpSnapshot.docs.forEach((d) => {
+          rpMap[d.id] = { ...(d.data() as Omit<RoundPointsData, "id">), id: d.id };
         });
-        setUsers(individualData);
+        setRoundPointsMap(rpMap);
 
-        // Calculate Department Leaderboard
+        setAllData(allUsers);
+        sortAndSet(allUsers, "overall");
+
+        // Calculate Department Leaderboard (always uses overall)
         const deptMap: Record<string, { totalPoints: number; userCount: number }> = {};
         allUsers.forEach(u => {
           const dept = normalizeDepartment(u.department);
@@ -89,7 +118,7 @@ export default function Leaderboard() {
       }
     };
     loadLeaderboard();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (setupLoading) {
     return (
@@ -160,8 +189,25 @@ export default function Leaderboard() {
           Tracking the best predictors across the company.
         </p>
 
+        {/* Round Tabs */}
+        <div className="flex items-center justify-center gap-2 mt-8 flex-wrap">
+          {(Object.entries(ROUND_LABELS) as [RoundView, string][]).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setRoundView(key)}
+              className={`px-5 py-2.5 rounded-xl font-black italic uppercase tracking-tighter font-bebas text-sm transition-all ${
+                roundView === key
+                  ? 'bg-red-600 text-white shadow-lg shadow-red-200'
+                  : 'bg-red-50 text-red-300 hover:bg-red-100'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
         {/* View Switcher */}
-        <div className="flex items-center justify-center gap-3 mt-10">
+        <div className="flex items-center justify-center gap-3 mt-6">
           <button 
             onClick={() => setView('individual')}
             className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-black italic uppercase tracking-tighter font-bebas transition-all ${
@@ -173,17 +219,19 @@ export default function Leaderboard() {
             <UserIcon className="w-4 h-4" />
             Individual
           </button>
-          <button 
-            onClick={() => setView('department')}
-            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-black italic uppercase tracking-tighter font-bebas transition-all ${
-              view === 'department' 
-                ? 'bg-red-600 text-white shadow-lg shadow-red-200' 
-                : 'bg-red-50 text-red-300 hover:bg-red-100'
-            }`}
-          >
-            <Building2 className="w-4 h-4" />
-            Department
-          </button>
+          {roundView === "overall" && (
+            <button 
+              onClick={() => setView('department')}
+              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-black italic uppercase tracking-tighter font-bebas transition-all ${
+                view === 'department' 
+                  ? 'bg-red-600 text-white shadow-lg shadow-red-200' 
+                  : 'bg-red-50 text-red-300 hover:bg-red-100'
+              }`}
+            >
+              <Building2 className="w-4 h-4" />
+              Department
+            </button>
+          )}
         </div>
 
         {view === 'individual' && (
@@ -361,7 +409,7 @@ export default function Leaderboard() {
   );
 }
 
-function PodiumCard({ user, rank, icon, height, isGold, delay, mobileOrder }: { user: UserData, rank: number, icon: React.ReactNode, height: string, isGold?: boolean, delay: number, mobileOrder: string }) {
+function PodiumCard({ user, rank, icon, height, isGold, delay, mobileOrder }: { user: { id: string; name: string; department?: string; totalPoints: number }, rank: number, icon: React.ReactNode, height: string, isGold?: boolean, delay: number, mobileOrder: string }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 30 }}

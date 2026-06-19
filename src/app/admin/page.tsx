@@ -26,10 +26,11 @@ import {
 import Link from "next/link";
 import * as XLSX from 'xlsx';
 import { Match, UserData, Prediction, DeptData, Notice } from "@/types";
-import { formatKickoff, WORLD_CUP_2026_TEAMS, normalizeDepartment, formatDepartmentDisplay } from "@/lib/utils";
+import { formatKickoff, WORLD_CUP_2026_TEAMS, normalizeDepartment, formatDepartmentDisplay, roundKeyFromMatchNumber } from "@/lib/utils";
 import { exportMasterPredictionsReport } from "@/lib/exportPredictionsReport";
 import { useMobileBackToHome } from "@/hooks/useMobileBackToHome";
 import { useAuth } from "@/contexts/AuthContext";
+import { backfillRoundPoints, BackfillResult } from "@/lib/migration";
 
 type AdminTab = 'matches' | 'users' | 'notices';
 
@@ -59,6 +60,8 @@ export default function AdminPage() {
     activeMatches: 0
   });
   const [incompleteCount, setIncompleteCount] = useState(0);
+  const [backfilling, setBackfilling] = useState(false);
+  const [backfillResult, setBackfillResult] = useState<BackfillResult | null>(null);
   
   // New/Edit Match Form State
   const [matchForm, setMatchForm] = useState({
@@ -171,13 +174,35 @@ export default function AdminPage() {
     }
   };
 
+  const handleBackfill = async () => {
+    setBackfilling(true);
+    setBackfillResult(null);
+    try {
+      const res = await backfillRoundPoints();
+      setBackfillResult(res);
+    } catch (err) {
+      setBackfillResult({
+        usersProcessed: 0,
+        predictionsProcessed: 0,
+        errors: [err instanceof Error ? err.message : String(err)],
+        success: false,
+      });
+    } finally {
+      setBackfilling(false);
+    }
+  };
+
   const handleAddMatch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!matchForm.teamA || !matchForm.teamB || !matchForm.kickoffTime) return;
     
     try {
+      const existingNumbers = matches.map(m => m.matchNumber).filter((n): n is number => n != null);
+      const nextNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : 1;
+
       await addDoc(collection(db, "matches"), {
         ...matchForm,
+        matchNumber: nextNumber,
         kickoffTime: Timestamp.fromDate(new Date(matchForm.kickoffTime)),
         status: "upcoming",
         result: null,
@@ -290,6 +315,15 @@ export default function AdminPage() {
         return;
       }
 
+      // Ensure matchNumber exists — auto-assign if missing
+      let matchNumber = match?.matchNumber;
+      if (matchNumber == null) {
+        const existingNumbers = matches.map(m => m.matchNumber).filter((n): n is number => n != null);
+        matchNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : 1;
+      }
+
+      const roundKey = roundKeyFromMatchNumber(matchNumber);
+
       const predictionsQuery = query(
         collection(db, "predictions"),
         where("matchId", "==", matchId)
@@ -303,7 +337,8 @@ export default function AdminPage() {
       batch.update(matchRef, {
         result,
         totalGoalsResult: goals,
-        status: "completed"
+        status: "completed",
+        ...(match?.matchNumber == null ? { matchNumber } : {}),
       });
 
       for (const predictionDoc of predictionSnapshot.docs) {
@@ -343,6 +378,16 @@ export default function AdminPage() {
           // This creates the document if missing, or increments points safely if it exists!
           batch.set(userRef, {
             totalPoints: increment(pointsEarned)
+          }, { merge: true });
+
+          // Update roundPoints — always runs (roundKey guaranteed by auto-assignment above)
+          const rpRef = doc(db, "roundPoints", pred.uid);
+          batch.set(rpRef, {
+            uid: pred.uid,
+            name: user?.name || pred.userName || "",
+            department: user?.department || "",
+            [roundKey]: increment(pointsEarned),
+            overall: increment(pointsEarned),
           }, { merge: true });
         }
       }
@@ -593,6 +638,45 @@ export default function AdminPage() {
           </button>
         </div>
 
+        {/* Round Leaderboard Tools */}
+        <div className="mb-8 p-6 bg-gradient-to-r from-red-800 to-red-700 rounded-2xl border border-red-600 shadow-lg">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="text-sm font-black uppercase tracking-wider text-white font-bebas italic leading-relaxed">
+                ⚙️ Round Leaderboard Tools
+              </h3>
+              <p className="text-[10px] font-bold text-red-200 uppercase tracking-widest leading-relaxed mt-1">
+                Backfill round points from already-scored predictions
+              </p>
+            </div>
+            <button
+              onClick={handleBackfill}
+              disabled={backfilling}
+              className="shrink-0 flex items-center gap-2 px-5 py-3 bg-white text-red-700 font-black uppercase tracking-widest rounded-xl text-xs shadow-md hover:bg-red-50 transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {backfilling ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-red-700/30 border-t-red-700 rounded-full animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>🔄 Backfill Round Points</>
+              )}
+            </button>
+          </div>
+          {backfillResult && (
+            <div className={`mt-4 p-4 rounded-xl text-xs font-bold uppercase tracking-wider ${
+              backfillResult.success ? 'bg-green-900/40 text-green-200' : 'bg-red-900/40 text-red-200'
+            }`}>
+              {backfillResult.success ? (
+                <>✅ Processed {backfillResult.predictionsProcessed} predictions across {backfillResult.usersProcessed} users</>
+              ) : (
+                <>❌ Failed: {backfillResult.errors.join("; ")}</>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Tab Content */}
         <div className="bg-white rounded-[2.5rem] border border-red-50 shadow-xl overflow-hidden">
           {/* Toolbar */}
@@ -668,8 +752,10 @@ export default function AdminPage() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-red-50/50 text-[10px] font-black uppercase tracking-widest text-red-400">
+                    <th className="px-8 py-4">#</th>
                     <th className="px-8 py-4">Status</th>
                     <th className="px-8 py-4">Battle</th>
+                    <th className="px-8 py-4">Stage</th>
                     <th className="px-8 py-4">Kickoff</th>
                     <th className="px-8 py-4">Engagement</th>
                     <th className="px-8 py-4">Final Result</th>
@@ -683,6 +769,9 @@ export default function AdminPage() {
                     return timeA - timeB;
                   }).map((match) => (
                     <tr key={match.id} className="hover:bg-red-50/20 transition-all group">
+                      <td className="px-8 py-6 text-sm font-black italic text-red-500 font-bebas">
+                        {match.matchNumber != null ? `#${match.matchNumber}` : "—"}
+                      </td>
                       <td className="px-8 py-6">
                         <div className={`inline-flex px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
                           match.status === 'completed' ? 'bg-red-50 text-red-600 border-red-100' : 
@@ -696,6 +785,13 @@ export default function AdminPage() {
                         <span className="text-lg font-black italic uppercase tracking-tighter text-red-700 font-bebas">
                           {match.teamA} <span className="text-red-300 mx-1">vs</span> {match.teamB}
                         </span>
+                      </td>
+                      <td className="px-8 py-6">
+                        {match.stage && (
+                          <span className="inline-block px-2 py-1 rounded-full bg-red-50 text-red-400 border border-red-100 text-[9px] font-black uppercase tracking-widest">
+                            {match.stage.replace(/_/g, " ")}
+                          </span>
+                        )}
                       </td>
                       <td className="px-8 py-6">
                         <div className="flex flex-col">

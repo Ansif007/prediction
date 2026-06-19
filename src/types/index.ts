@@ -8,6 +8,8 @@ export interface Match {
   status: string;
   result: string | null;
   totalGoalsResult?: string;
+  matchNumber?: number;
+  stage?: string;
   stats?: {
     teamA: number;
     draw: number;
@@ -42,6 +44,21 @@ export interface Prediction {
   pointsAwarded?: boolean;
   pointsEarned?: number;
   prediction?: string; // Legacy compatibility
+}
+
+export type RoundView = "overall" | "round1" | "round2" | "round3" | "knockout";
+
+export interface RoundPointsData {
+  id: string;
+  uid: string;
+  name: string;
+  department?: string;
+  showOnLeaderboard?: boolean;
+  round1: number;
+  round2: number;
+  round3: number;
+  knockout: number;
+  overall: number;
 }
 
 export interface DeptData {

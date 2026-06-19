@@ -78,6 +78,29 @@ export function getTeamFlag(teamName: string) {
   return code ? `https://flagcdn.com/w160/${code}.png` : `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(teamName)}&backgroundColor=fef2f2`;
 }
 
+export const ROUND_RANGES: Record<string, [number, number] | null> = {
+  overall: null,
+  round1: [1, 24],
+  round2: [25, 48],
+  round3: [49, 72],
+  knockout: [73, 104],
+};
+
+export const ROUND_LABELS: Record<string, string> = {
+  overall: "Overall",
+  round1: "Round 1",
+  round2: "Round 2",
+  round3: "Round 3",
+  knockout: "Knockout",
+};
+
+export function roundKeyFromMatchNumber(mn: number): "round1" | "round2" | "round3" | "knockout" {
+  if (mn <= 24) return "round1";
+  if (mn <= 48) return "round2";
+  if (mn <= 72) return "round3";
+  return "knockout";
+}
+
 export const WORLD_CUP_2026_TEAMS = [
   "USA", "Mexico", "Canada",
   "Argentina", "Brazil", "Colombia", "Ecuador", "Paraguay", "Uruguay",
