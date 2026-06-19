@@ -3,15 +3,12 @@
 import { useEffect, useState } from "react";
 import { 
   collection, 
-  getDoc, 
   getDocs, 
-  doc, 
   Timestamp, 
   query, 
   where 
 } from "firebase/firestore";
-import { auth, db } from "@/lib/firebase";
-import { onAuthStateChanged, User } from "firebase/auth";
+import { db } from "@/lib/firebase";
 import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
@@ -20,14 +17,16 @@ import { Match } from "@/types";
 import { formatKickoff, getTeamFlag } from "@/lib/utils";
 import { useMobileBackToHome } from "@/hooks/useMobileBackToHome";
 import { useRequireSetup } from "@/hooks/useRequireSetup";
+import { useAuth } from "@/contexts/AuthContext";
+import { getCachedMatches, setCachedMatches } from "@/lib/cache";
 
 export default function Dashboard() {
   const { loading: setupLoading, blocked: setupBlocked } = useRequireSetup();
   useMobileBackToHome();
+  const { user, isAdmin } = useAuth();
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const [userPoints, setUserPoints] = useState<number>(0);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [predictedMatchIds, setPredictedMatchIds] = useState<Set<string>>(new Set());
   const [currentTime, setCurrentTime] = useState(new Date());
   const [matchTab, setMatchTab] = useState<'upcoming' | 'completed'>('upcoming');
@@ -40,28 +39,23 @@ export default function Dashboard() {
   useEffect(() => {
     let cancelled = false;
 
-    const fetchData = async (user: User | null) => {
+    const fetchData = async () => {
       try {
-        if (user) {
-          const userDoc = await getDoc(doc(db, "users", user.uid));
-          if (cancelled) return;
-          const userData = userDoc.data();
-          if (userDoc.exists() && userData && userData.role === "admin") {
-            setIsAdmin(true);
-          } else {
-            setIsAdmin(false);
-          }
+        const cached = getCachedMatches<Match[]>();
+        let matchList: Match[];
+
+        if (cached && !cached.stale) {
+          matchList = cached.data;
         } else {
-          setIsAdmin(false);
+          const querySnapshot = await getDocs(collection(db, "matches"));
+          if (cancelled) return;
+
+          matchList = querySnapshot.docs.map((docItem) => ({
+            id: docItem.id,
+            ...(docItem.data() as Omit<Match, "id">),
+          }));
+          setCachedMatches(matchList);
         }
-
-        const querySnapshot = await getDocs(collection(db, "matches"));
-        if (cancelled) return;
-
-        const matchList: Match[] = querySnapshot.docs.map((docItem) => ({
-          id: docItem.id,
-          ...(docItem.data() as Omit<Match, "id">),
-        }));
         matchList.sort((a: Match, b: Match) => {
           const aDone = a.status === 'completed' ? 1 : 0;
           const bDone = b.status === 'completed' ? 1 : 0;
@@ -106,15 +100,12 @@ export default function Dashboard() {
       }
     };
 
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      fetchData(user);
-    });
+    fetchData();
 
     return () => {
       cancelled = true;
-      unsubscribe();
     };
-  }, []);
+  }, [user]);
 
   if (setupLoading) {
     return (

@@ -3,6 +3,7 @@ import { DM_Sans, Bebas_Neue } from "next/font/google";
 import "./globals.css";
 import Navbar from "../components/Navbar";
 import { ToastProvider } from "../components/Toast";
+import { AuthProvider } from "@/contexts/AuthContext";
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -29,12 +30,14 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${dmSans.variable} ${bebasNeue.variable}`}>
       <body className="antialiased font-sans">
-        <ToastProvider>
-          <Navbar />
-          <div className="pt-20 min-h-screen">
-            {children}
-          </div>
-        </ToastProvider>
+        <AuthProvider>
+          <ToastProvider>
+            <Navbar />
+            <div className="pt-20 min-h-screen">
+              {children}
+            </div>
+          </ToastProvider>
+        </AuthProvider>
       </body>
     </html>
   );

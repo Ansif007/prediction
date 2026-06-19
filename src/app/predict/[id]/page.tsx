@@ -8,8 +8,7 @@ import {
   Timestamp, 
   serverTimestamp 
 } from "firebase/firestore";
-import { db, auth } from "@/lib/firebase";
-import { onAuthStateChanged } from "firebase/auth";
+import { db } from "@/lib/firebase";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Trophy, 
@@ -34,6 +33,7 @@ import { getTeamFlag } from "@/lib/utils";
 import { useToast } from "@/components/Toast";
 import { useMobileBackToHome } from "@/hooks/useMobileBackToHome";
 import { useRequireSetup } from "@/hooks/useRequireSetup";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function PredictPage({
   params,
@@ -45,38 +45,15 @@ export default function PredictPage({
   useMobileBackToHome();
   const router = useRouter();
   const { showToast } = useToast();
+  const { user, isAdmin } = useAuth();
   const [match, setMatch] = useState<Match | null>(null);
   const [loading, setLoading] = useState(true);
   const [prediction, setPrediction] = useState<string | null>(null);
   const [goals, setGoals] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [user, setUser] = useState<any>(null);
   const [showSuccess, setShowAddSuccess] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [pointsEarned, setPointsEarned] = useState<number | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const unsubscribe = onAuthStateChanged(auth, async (u) => {
-      if (cancelled) return;
-      setUser(u);
-      if (u) {
-        const userDoc = await getDoc(doc(db, "users", u.uid));
-        if (!cancelled) {
-          setIsAdmin(userDoc.exists() && userDoc.data().role === "admin");
-        }
-      } else {
-        setIsAdmin(false);
-      }
-    });
-
-    return () => {
-      cancelled = true;
-      unsubscribe();
-    };
-  }, []);
 
   useEffect(() => {
     let cancelled = false;

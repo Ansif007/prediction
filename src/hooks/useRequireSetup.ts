@@ -1,61 +1,39 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
-import { auth, db } from "@/lib/firebase";
+import { useAuth } from "@/contexts/AuthContext";
 
 export function useRequireSetup() {
   const router = useRouter();
   const pathname = usePathname();
-  const [loading, setLoading] = useState(true);
-  const [blocked, setBlocked] = useState(false);
+  const { user, userData, loading } = useAuth();
+
+  const needsSetup =
+    !!user && !!userData && userData.role !== "admin" && (!userData.employeeId || !userData.department);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        router.replace("/");
-        return;
-      }
+    if (loading) return;
 
-      if (pathname === "/setup") {
-        setLoading(false);
-        setBlocked(false);
-        return;
-      }
+    if (!user) {
+      router.replace("/");
+      return;
+    }
 
-      try {
-        const userSnap = await getDoc(doc(db, "users", user.uid));
-        if (!userSnap.exists()) {
-          router.replace("/");
-          return;
-        }
+    if (pathname === "/setup") return;
 
-        const data = userSnap.data();
-        if (data.role === "admin") {
-          setBlocked(false);
-          setLoading(false);
-          return;
-        }
+    if (!userData) {
+      router.replace("/");
+      return;
+    }
 
-        if (!data.employeeId || !data.department) {
-          setBlocked(true);
-          router.replace("/setup");
-          return;
-        }
+    if (userData.role === "admin") return;
 
-        setBlocked(false);
-      } catch {
-        router.replace("/");
-        return;
-      } finally {
-        setLoading(false);
-      }
-    });
+    if (!userData.employeeId || !userData.department) {
+      router.replace("/setup");
+      return;
+    }
+  }, [user, userData, loading, router, pathname]);
 
-    return () => unsubscribe();
-  }, [router, pathname]);
-
-  return { loading, blocked };
+  return { loading: loading || (!userData && !!user), blocked: needsSetup };
 }

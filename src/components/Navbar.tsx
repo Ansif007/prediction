@@ -2,34 +2,19 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
-import { onAuthStateChanged, signOut, User } from "firebase/auth";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import { LayoutDashboard, Trophy, LogOut, User as UserIcon, Home, Menu, X, ShieldCheck } from "lucide-react";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import { useToast } from "./Toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Navbar() {
   const { showToast } = useToast();
-  const [user, setUser] = useState<User | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const { user, isAdmin } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const pathname = usePathname();
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (u) => {
-      setUser(u);
-      if (u) {
-        const userDoc = await getDoc(doc(db, "users", u.uid));
-        setIsAdmin(userDoc.exists() && userDoc.data().role === "admin");
-      } else {
-        setIsAdmin(false);
-      }
-    });
-    return () => unsubscribe();
-  }, []);
 
   const handleLogout = async () => {
     await signOut(auth);

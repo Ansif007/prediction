@@ -2,25 +2,26 @@
 
 import { useEffect, useState } from "react";
 import { collection, getDocs, query, doc, getDoc } from "firebase/firestore";
-import { db, auth } from "@/lib/firebase";
-import { onAuthStateChanged, User } from "firebase/auth";
+import { db } from "@/lib/firebase";
 import { motion } from "framer-motion";
 import { Trophy, Medal, Award, User as UserIcon, Star, TrendingUp, Users as UsersIcon, Building2, EyeOff, Search } from "lucide-react";
 import { UserData, DeptData } from "@/types";
 import { normalizeDepartment, formatDepartmentDisplay } from "@/lib/utils";
 import { useMobileBackToHome } from "@/hooks/useMobileBackToHome";
 import { useRequireSetup } from "@/hooks/useRequireSetup";
+import { useAuth } from "@/contexts/AuthContext";
+import { getCache, setCache } from "@/lib/cache";
 
 export default function Leaderboard() {
   const { loading: setupLoading, blocked: setupBlocked } = useRequireSetup();
   useMobileBackToHome();
+  const { isAdmin } = useAuth();
   const [users, setUsers] = useState<UserData[]>([]);
   const [depts, setDepts] = useState<DeptData[]>([]);
   const [view, setView] = useState<'individual' | 'department'>('individual');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isLeaderboardEnabled, setIsLeaderboardEnabled] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
@@ -31,28 +32,20 @@ export default function Leaderboard() {
           settingsSnap.exists() ? settingsSnap.data().isLeaderboardEnabled !== false : true
         );
 
-        const authUser = await new Promise<User | null>((resolve) => {
-          const unsubscribe = onAuthStateChanged(auth, (user) => {
-            unsubscribe();
-            resolve(user);
-          });
-        });
+        // Try cache first — stale is ok while re-fetching
+        const cached = getCache<UserData[]>("leaderboard_users");
+        let allUsers: UserData[];
 
-        if (authUser) {
-          const userDoc = await getDoc(doc(db, "users", authUser.uid));
-          setIsAdmin(userDoc.exists() && userDoc.data().role === "admin");
+        if (cached && !cached.stale) {
+          allUsers = cached.data;
+        } else {
+          const q = query(collection(db, "users"));
+          const snapshot = await getDocs(q);
+          allUsers = snapshot.docs
+            .map((d) => ({ ...(d.data() as UserData), id: d.id }))
+            .filter(u => u.role !== "admin" && u.showOnLeaderboard !== false);
+          setCache("leaderboard_users", allUsers);
         }
-
-        // Fetch all users to avoid index requirement for small internal app
-        const q = query(collection(db, "users"));
-        const snapshot = await getDocs(q);
-        
-        const allUsers = snapshot.docs
-          .map((doc) => ({
-            ...(doc.data() as UserData),
-            id: doc.id,
-          }))
-          .filter(u => u.role !== "admin" && u.showOnLeaderboard !== false);
 
         // Calculate Individual Leaderboard
         const individualData = [...allUsers].sort((a, b) => {

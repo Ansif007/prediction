@@ -1,22 +1,21 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { auth, db } from "@/lib/firebase";
-import { doc, getDoc, setDoc, collection, query, where, getDocs } from "firebase/firestore";
-import { onAuthStateChanged } from "firebase/auth";
+import { useState } from "react";
+import { db } from "@/lib/firebase";
+import { doc, setDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { motion } from "framer-motion";
 import { ShieldCheck, User as UserIcon, Send, Building2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { DEPARTMENT_OTHER } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function SetupPage() {
   const router = useRouter();
+  const { user, userData, loading } = useAuth();
   const [employeeId, setEmployeeId] = useState("");
   const [department, setDepartment] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [checking, setChecking] = useState(true);
 
   const departments: { value: string; label: string }[] = [
     { value: "TUBE", label: "TUBE" },
@@ -26,36 +25,28 @@ export default function SetupPage() {
     { value: DEPARTMENT_OTHER, label: "others" },
   ];
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        router.replace("/");
-        return;
-      }
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-red-100 border-t-red-600 rounded-full animate-spin" />
+      </div>
+    );
+  }
 
-      setUserId(user.uid);
+  if (!user) {
+    router.replace("/");
+    return null;
+  }
 
-      const userRef = doc(db, "users", user.uid);
-      const userSnap = await getDoc(userRef);
-
-      if (userSnap.exists()) {
-        const data = userSnap.data();
-        if (data.employeeId && data.department) {
-          router.replace("/dashboard");
-          return;
-        }
-      }
-
-      setChecking(false);
-    });
-
-    return () => unsubscribe();
-  }, [router]);
+  if (userData?.employeeId && userData?.department) {
+    router.replace("/dashboard");
+    return null;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanId = employeeId.trim();
-    if (!cleanId || !userId || !department) return;
+    if (!cleanId || !user?.uid || !department) return;
 
     setSubmitting(true);
     setError(null);
@@ -64,7 +55,7 @@ export default function SetupPage() {
       const querySnapshot = await getDocs(q);
 
       if (!querySnapshot.empty) {
-        const duplicate = querySnapshot.docs.find(doc => doc.id !== userId);
+        const duplicate = querySnapshot.docs.find(d => d.id !== user!.uid);
         if (duplicate) {
           setError("This Employee Number is already registered.");
           setSubmitting(false);
@@ -72,7 +63,7 @@ export default function SetupPage() {
         }
       }
 
-      const userRef = doc(db, "users", userId);
+      const userRef = doc(db, "users", user!.uid);
       await setDoc(userRef, {
         employeeId: cleanId,
         department: department,
@@ -87,14 +78,6 @@ export default function SetupPage() {
       setSubmitting(false);
     }
   };
-
-  if (checking) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="w-12 h-12 border-4 border-red-100 border-t-red-600 rounded-full animate-spin" />
-      </div>
-    );
-  }
 
   return (
     <main className="min-h-screen bg-white flex items-center justify-center px-6">

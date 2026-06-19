@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { auth, db } from "@/lib/firebase";
+import { db } from "@/lib/firebase";
 import { collection, doc, getDoc, getDocs, updateDoc, query, where } from "firebase/firestore";
-import { onAuthStateChanged } from "firebase/auth";
 import { motion } from "framer-motion";
 import { User as UserIcon, Save, ArrowLeft, BadgeCheck, Star, CheckCircle2, Target, Timer, XCircle, Trophy } from "lucide-react";
 import Link from "next/link";
@@ -13,6 +12,8 @@ import { useToast } from "@/components/Toast";
 import { formatDepartmentDisplay } from "@/lib/utils";
 import { useMobileBackToHome } from "@/hooks/useMobileBackToHome";
 import { useRequireSetup } from "@/hooks/useRequireSetup";
+import { useAuth } from "@/contexts/AuthContext";
+import { getCachedMatches, setCachedMatches } from "@/lib/cache";
 
 interface MatchStats {
   completed: number;
@@ -26,6 +27,7 @@ export default function ProfilePage() {
   useMobileBackToHome();
   const router = useRouter();
   const { showToast } = useToast();
+  const { user, userData } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -39,82 +41,78 @@ export default function ProfilePage() {
   const [userRank, setUserRank] = useState<number>(0);
 
   useEffect(() => {
+    if (!user || !userData) return;
     let cancelled = false;
 
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (cancelled) return;
+    const loadProfile = async () => {
+      if (userData.role === "admin") {
+        router.push("/admin");
+        return;
+      }
+      setProfile(userData);
 
-      if (user) {
-        const userRef = doc(db, "users", user.uid);
-        const userSnap = await getDoc(userRef);
-        if (cancelled) return;
+      try {
+        const cached = getCachedMatches<Match[]>();
+        let matches: Match[];
 
-        if (userSnap.exists()) {
-          const data = userSnap.data() as UserData;
-          if (data.role === "admin") {
-            router.push("/admin");
-            return;
-          }
-          setProfile(data);
-        }
-
-        try {
+        if (cached && !cached.stale) {
+          matches = cached.data;
+        } else {
           const matchesSnap = await getDocs(collection(db, "matches"));
-          const predsSnap = await getDocs(query(collection(db, "predictions"), where("uid", "==", user.uid)));
           if (cancelled) return;
-
-          const matches = matchesSnap.docs.map(d => ({ id: d.id, ...d.data() } as Match));
-          const predictions = predsSnap.docs.map(d => d.data());
-          const predictedMatchIds = new Set(predictions.map(p => p.matchId));
-
-          const newStats = {
-            completed: 0,
-            predicted: predictedMatchIds.size,
-            pending: 0,
-            missed: 0
-          };
-
-          matches.forEach((match) => {
-            const isPredicted = predictedMatchIds.has(match.id);
-            const isCompleted = match.status === 'completed';
-
-            if (isCompleted) {
-              if (isPredicted) newStats.completed++;
-              else newStats.missed++;
-            } else {
-              if (!isPredicted) newStats.pending++;
-            }
-          });
-
-          setStats(newStats);
-
-          // Calculate rank
-          const allUsersSnap = await getDocs(query(collection(db, "users"), where("role", "==", "user")));
-          const allUsersList = allUsersSnap.docs
-            .filter(d => d.data().showOnLeaderboard !== false)
-            .map(d => ({ id: d.id, points: (d.data().totalPoints as number) || 0, name: (d.data().name as string) || '' }))
-            .sort((a, b) => {
-              const pts = b.points - a.points;
-              if (pts !== 0) return pts;
-              return a.name.localeCompare(b.name);
-            });
-          const userIndex = allUsersList.findIndex(u => u.id === user.uid);
-          if (userIndex !== -1) setUserRank(userIndex + 1);
-        } catch (error) {
-          console.error("Error fetching stats:", error);
+          matches = matchesSnap.docs.map(d => ({ id: d.id, ...d.data() } as Match));
+          setCachedMatches(matches);
         }
-      }
 
-      if (!cancelled) {
-        setLoading(false);
-      }
-    });
+        const predsSnap = await getDocs(query(collection(db, "predictions"), where("uid", "==", user.uid)));
+        if (cancelled) return;
+        const predictions = predsSnap.docs.map(d => d.data());
+        const predictedMatchIds = new Set(predictions.map(p => p.matchId));
 
-    return () => {
-      cancelled = true;
-      unsubscribe();
+        const newStats = {
+          completed: 0,
+          predicted: predictedMatchIds.size,
+          pending: 0,
+          missed: 0
+        };
+
+        matches.forEach((match) => {
+          const isPredicted = predictedMatchIds.has(match.id);
+          const isCompleted = match.status === 'completed';
+
+          if (isCompleted) {
+            if (isPredicted) newStats.completed++;
+            else newStats.missed++;
+          } else {
+            if (!isPredicted) newStats.pending++;
+          }
+        });
+
+        setStats(newStats);
+
+        // Calculate rank
+        const allUsersSnap = await getDocs(query(collection(db, "users"), where("role", "==", "user")));
+        const allUsersList = allUsersSnap.docs
+          .filter(d => d.data().showOnLeaderboard !== false)
+          .map(d => ({ id: d.id, points: (d.data().totalPoints as number) || 0, name: (d.data().name as string) || '' }))
+          .sort((a, b) => {
+            const pts = b.points - a.points;
+            if (pts !== 0) return pts;
+            return a.name.localeCompare(b.name);
+          });
+        const userIndex = allUsersList.findIndex(u => u.id === user.uid);
+        if (userIndex !== -1) setUserRank(userIndex + 1);
+      } catch (error) {
+        console.error("Error fetching stats:", error);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     };
-  }, [router]);
+
+    loadProfile();
+
+    return () => { cancelled = true; };
+  }, [user, userData, router]);
 
   if (setupLoading) {
     return (
@@ -128,12 +126,12 @@ export default function ProfilePage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!auth.currentUser || !profile) return;
+    if (!user || !profile) return;
 
     setSaving(true);
     setMessage(null);
     try {
-      const userRef = doc(db, "users", auth.currentUser.uid);
+      const userRef = doc(db, "users", user.uid);
       await updateDoc(userRef, {
         name: profile.name.trim(),
         department: profile.department

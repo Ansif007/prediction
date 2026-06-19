@@ -13,17 +13,15 @@ import {
   deleteDoc,
   getDoc,
   setDoc,
-  onSnapshot,
   Timestamp,
   writeBatch,
 } from "firebase/firestore";
-import { onAuthStateChanged } from "firebase/auth";
-import { db, auth } from "@/lib/firebase";
+import { db } from "@/lib/firebase";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   ShieldAlert, Plus, Trash2, X, Edit2, Play, Pause, 
   BarChart3, AlertTriangle, Users, LayoutGrid, Settings, Activity, 
-  Download, Search, Trophy, Target, Bell
+  Download, Search, Trophy, Target, Bell, RefreshCw
 } from "lucide-react";
 import Link from "next/link";
 import * as XLSX from 'xlsx';
@@ -31,6 +29,7 @@ import { Match, UserData, Prediction, DeptData, Notice } from "@/types";
 import { formatKickoff, WORLD_CUP_2026_TEAMS, normalizeDepartment, formatDepartmentDisplay } from "@/lib/utils";
 import { exportMasterPredictionsReport } from "@/lib/exportPredictionsReport";
 import { useMobileBackToHome } from "@/hooks/useMobileBackToHome";
+import { useAuth } from "@/contexts/AuthContext";
 
 type AdminTab = 'matches' | 'users' | 'notices';
 
@@ -42,7 +41,7 @@ export default function AdminPage() {
   const [notices, setNotices] = useState<Notice[]>([]);
   const [exportingPredictions, setExportingPredictions] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const { isAdmin } = useAuth();
   const [showAddForm, setShowAddForm] = useState(false);
   const [showNoticeForm, setShowNoticeForm] = useState(false);
   const [editingMatch, setEditingMatch] = useState<Match | null>(null);
@@ -52,6 +51,7 @@ export default function AdminPage() {
   const [matchTab, setMatchTab] = useState<'upcoming' | 'completed'>('upcoming');
   const [isLeaderboardEnabled, setIsLeaderboardEnabled] = useState(true);
   const [togglingLeaderboard, setTogglingLeaderboard] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   const [globalStats, setGlobalStats] = useState({
     totalUsers: 0,
@@ -74,94 +74,42 @@ export default function AdminPage() {
     type: "info" as Notice['type']
   });
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (cancelled) return;
-
-      if (!user) {
-        setIsAdmin(false);
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const userDoc = await getDoc(doc(db, "users", user.uid));
-        if (cancelled) return;
-
-        if (userDoc.exists() && userDoc.data().role === "admin") {
-          setIsAdmin(true);
-        } else {
-          setIsAdmin(false);
-          setLoading(false);
-        }
-      } catch (error) {
-        console.error("Error verifying admin:", error);
-        if (!cancelled) {
-          setIsAdmin(false);
-          setLoading(false);
-        }
-      }
-    });
-
-    return () => {
-      cancelled = true;
-      unsubscribe();
-    };
-  }, []);
-
-  useEffect(() => {
+  const loadAdminData = async () => {
     if (!isAdmin) return;
+    try {
+      const [usersSnap, matchesSnap, predictionsSnap, noticesSnap, settingsSnap] = await Promise.all([
+        getDocs(collection(db, "users")),
+        getDocs(collection(db, "matches")),
+        getDocs(collection(db, "predictions")),
+        getDocs(collection(db, "notices")),
+        getDoc(doc(db, "config", "app_settings")),
+      ]);
 
-    let cancelled = false;
-    setLoading(true);
+      const usersData = usersSnap.docs.map(
+        (d) => ({ id: d.id, ...d.data() }) as UserData
+      );
+      const matchesRaw = matchesSnap.docs.map(
+        (d) => ({ id: d.id, ...d.data() }) as Match
+      );
+      const preds = predictionsSnap.docs.map(
+        (d) => ({ id: d.id, ...d.data() }) as Prediction
+      );
+      const noticesData = noticesSnap.docs.map(
+        (d) => ({ id: d.id, ...d.data() }) as Notice
+      );
 
-    let usersData: UserData[] = [];
-    let matchesRaw: Match[] = [];
-    let noticesData: Notice[] = [];
-    let statsFetchId = 0;
-
-    const refreshMatchStats = (currentMatches: Match[]) => {
-      const fetchId = ++statsFetchId;
-
-      getDocs(collection(db, "predictions"))
-        .then((predictionsSnap) => {
-          if (cancelled || fetchId !== statsFetchId) return;
-
-          const preds = predictionsSnap.docs.map(
-            (docItem) => ({ id: docItem.id, ...docItem.data() }) as Prediction
-          );
-
-          const enrichedMatches: Match[] = currentMatches.map((data) => {
-            const matchPreds = preds.filter((p) => p.matchId === data.id);
-            return {
-              ...data,
-              stats: {
-                teamA: matchPreds.filter((p) => p.winnerPrediction === data.teamA).length,
-                draw: matchPreds.filter((p) => p.winnerPrediction === "DRAW").length,
-                teamB: matchPreds.filter((p) => p.winnerPrediction === data.teamB).length,
-                total: matchPreds.length,
-              },
-            };
-          });
-
-          setMatches(enrichedMatches);
-          setGlobalStats((prev) => ({
-            ...prev,
-            totalPredictions: preds.length,
-          }));
-        })
-        .catch((error) => console.error("Error fetching prediction stats:", error));
-    };
-
-    const syncState = () => {
-      if (cancelled) return;
-
-      const baseMatches: Match[] = matchesRaw.map((data) => ({
-        ...data,
-        stats: data.stats ?? { teamA: 0, draw: 0, teamB: 0, total: 0 },
-      }));
+      const enrichedMatches: Match[] = matchesRaw.map((data) => {
+        const matchPreds = preds.filter((p) => p.matchId === data.id);
+        return {
+          ...data,
+          stats: {
+            teamA: matchPreds.filter((p) => p.winnerPrediction === data.teamA).length,
+            draw: matchPreds.filter((p) => p.winnerPrediction === "DRAW").length,
+            teamB: matchPreds.filter((p) => p.winnerPrediction === data.teamB).length,
+            total: matchPreds.length,
+          },
+        };
+      });
 
       setUsers(
         [...usersData].sort((a, b) => {
@@ -170,7 +118,7 @@ export default function AdminPage() {
           return dateB - dateA;
         })
       );
-      setMatches(baseMatches);
+      setMatches(enrichedMatches);
       setNotices(
         [...noticesData].sort(
           (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -178,63 +126,31 @@ export default function AdminPage() {
       );
       setGlobalStats({
         totalUsers: usersData.filter((u) => u.role === "user").length,
-        totalPredictions: 0,
-        activeMatches: baseMatches.filter((m) => m.status === "live").length,
+        totalPredictions: preds.length,
+        activeMatches: matchesRaw.filter((m) => m.status === "live").length,
       });
       setIncompleteCount(
         usersData.filter((u) => u.role === "user" && (!u.employeeId || !u.department)).length
       );
+      setIsLeaderboardEnabled(
+        settingsSnap.exists() ? settingsSnap.data().isLeaderboardEnabled !== false : true
+      );
+    } catch (error) {
+      console.error("Error loading admin data:", error);
+    } finally {
+      setIsRefreshing(false);
       setLoading(false);
-      refreshMatchStats(matchesRaw);
-    };
+    }
+  };
 
-    const unsubs = [
-      onSnapshot(
-        collection(db, "users"),
-        (snap) => {
-          usersData = snap.docs.map(
-            (docItem) => ({ id: docItem.id, ...docItem.data() }) as UserData
-          );
-          syncState();
-        },
-        (error) => console.error("Users listener error:", error)
-      ),
-      onSnapshot(
-        collection(db, "matches"),
-        (snap) => {
-          matchesRaw = snap.docs.map(
-            (docItem) => ({ id: docItem.id, ...docItem.data() }) as Match
-          );
-          syncState();
-        },
-        (error) => console.error("Matches listener error:", error)
-      ),
-      onSnapshot(
-        collection(db, "notices"),
-        (snap) => {
-          noticesData = snap.docs.map(
-            (docItem) => ({ id: docItem.id, ...docItem.data() }) as Notice
-          );
-          syncState();
-        },
-        (error) => console.error("Notices listener error:", error)
-      ),
-      onSnapshot(
-        doc(db, "config", "app_settings"),
-        (snap) => {
-          if (cancelled) return;
-          setIsLeaderboardEnabled(
-            snap.exists() ? snap.data().isLeaderboardEnabled !== false : true
-          );
-        },
-        (error) => console.error("Settings listener error:", error)
-      ),
-    ];
-
-    return () => {
-      cancelled = true;
-      unsubs.forEach((unsub) => unsub());
-    };
+  useEffect(() => {
+    if (isAdmin) {
+      setLoading(true);
+      setIsRefreshing(true);
+      loadAdminData();
+    } else {
+      setLoading(false);
+    }
   }, [isAdmin]);
 
   const handleLeaderboardToggle = async () => {
@@ -688,6 +604,14 @@ export default function AdminPage() {
             </h2>
             
             <div className="flex items-center gap-3">
+              <button
+                onClick={() => { setIsRefreshing(true); loadAdminData(); }}
+                disabled={isRefreshing}
+                className="flex items-center gap-2 px-4 py-2.5 bg-white border border-red-100 text-red-600 font-black uppercase tracking-widest rounded-xl text-xs shadow-sm hover:bg-red-50 transition-all active:scale-95 disabled:opacity-60"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
               {activeTab === 'users' && (
                 <div className="relative">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-red-200" />
