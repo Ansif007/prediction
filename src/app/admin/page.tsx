@@ -31,6 +31,7 @@ import { exportMasterPredictionsReport } from "@/lib/exportPredictionsReport";
 import { useMobileBackToHome } from "@/hooks/useMobileBackToHome";
 import { useAuth } from "@/contexts/AuthContext";
 import { backfillRoundPoints, BackfillResult } from "@/lib/migration";
+import { renumberMatches, RenumberResult } from "@/lib/renumber";
 
 type AdminTab = 'matches' | 'users' | 'notices';
 
@@ -62,6 +63,8 @@ export default function AdminPage() {
   const [incompleteCount, setIncompleteCount] = useState(0);
   const [backfilling, setBackfilling] = useState(false);
   const [backfillResult, setBackfillResult] = useState<BackfillResult | null>(null);
+  const [renumbering, setRenumbering] = useState(false);
+  const [renumberResult, setRenumberResult] = useState<RenumberResult | null>(null);
   
   // New/Edit Match Form State
   const [matchForm, setMatchForm] = useState({
@@ -174,6 +177,24 @@ export default function AdminPage() {
     }
   };
 
+  const handleRenumber = async () => {
+    if (!confirm("This will reassign match numbers for ALL matches by kickoff time. Delete roundPoints collection in Firebase console afterwards, then click Backfill. Continue?")) return;
+    setRenumbering(true);
+    setRenumberResult(null);
+    try {
+      const res = await renumberMatches();
+      setRenumberResult(res);
+    } catch (err) {
+      setRenumberResult({
+        matchesProcessed: 0,
+        errors: [err instanceof Error ? err.message : String(err)],
+        success: false,
+      });
+    } finally {
+      setRenumbering(false);
+    }
+  };
+
   const handleBackfill = async () => {
     setBackfilling(true);
     setBackfillResult(null);
@@ -197,7 +218,11 @@ export default function AdminPage() {
     if (!matchForm.teamA || !matchForm.teamB || !matchForm.kickoffTime) return;
     
     try {
-      const existingNumbers = matches.map(m => m.matchNumber).filter((n): n is number => n != null);
+      // Query Firestore directly for the max matchNumber (avoids stale-state duplicates)
+      const allMatchesSnap = await getDocs(collection(db, "matches"));
+      const existingNumbers = allMatchesSnap.docs
+        .map((d) => d.data().matchNumber as number | undefined)
+        .filter((n): n is number => n != null);
       const nextNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : 1;
 
       await addDoc(collection(db, "matches"), {
@@ -315,10 +340,13 @@ export default function AdminPage() {
         return;
       }
 
-      // Ensure matchNumber exists — auto-assign if missing
+      // Ensure matchNumber exists — query Firestore for max to avoid stale-state duplicates
       let matchNumber = match?.matchNumber;
       if (matchNumber == null) {
-        const existingNumbers = matches.map(m => m.matchNumber).filter((n): n is number => n != null);
+        const allMatchesSnap = await getDocs(collection(db, "matches"));
+        const existingNumbers = allMatchesSnap.docs
+          .map((d) => d.data().matchNumber as number | undefined)
+          .filter((n): n is number => n != null);
         matchNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : 1;
       }
 
@@ -639,7 +667,7 @@ export default function AdminPage() {
         </div>
 
         {/* Round Leaderboard Tools */}
-        <div className="mb-8 p-6 bg-gradient-to-r from-red-800 to-red-700 rounded-2xl border border-red-600 shadow-lg">
+        <div className="mb-8 p-6 bg-gradient-to-r from-red-800 to-red-700 rounded-2xl border border-red-600 shadow-lg space-y-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
               <h3 className="text-sm font-black uppercase tracking-wider text-white font-bebas italic leading-relaxed">
@@ -665,13 +693,51 @@ export default function AdminPage() {
             </button>
           </div>
           {backfillResult && (
-            <div className={`mt-4 p-4 rounded-xl text-xs font-bold uppercase tracking-wider ${
+            <div className={`p-4 rounded-xl text-xs font-bold uppercase tracking-wider ${
               backfillResult.success ? 'bg-green-900/40 text-green-200' : 'bg-red-900/40 text-red-200'
             }`}>
               {backfillResult.success ? (
                 <>✅ Processed {backfillResult.predictionsProcessed} predictions across {backfillResult.usersProcessed} users</>
               ) : (
                 <>❌ Failed: {backfillResult.errors.join("; ")}</>
+              )}
+            </div>
+          )}
+
+          <hr className="border-red-600/30" />
+
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="text-sm font-black uppercase tracking-wider text-white font-bebas italic leading-relaxed">
+                🏷️ Match Numbering Tools
+              </h3>
+              <p className="text-[10px] font-bold text-red-200 uppercase tracking-widest leading-relaxed mt-1">
+                Renumber all matches sequentially by kickoff time. Delete roundPoints in Firebase console first, then Backfill.
+              </p>
+            </div>
+            <button
+              onClick={handleRenumber}
+              disabled={renumbering}
+              className="shrink-0 flex items-center gap-2 px-5 py-3 bg-white text-red-700 font-black uppercase tracking-widest rounded-xl text-xs shadow-md hover:bg-red-50 transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {renumbering ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-red-700/30 border-t-red-700 rounded-full animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>🔢 Renumber All Matches</>
+              )}
+            </button>
+          </div>
+          {renumberResult && (
+            <div className={`p-4 rounded-xl text-xs font-bold uppercase tracking-wider ${
+              renumberResult.success ? 'bg-green-900/40 text-green-200' : 'bg-red-900/40 text-red-200'
+            }`}>
+              {renumberResult.success ? (
+                <>✅ Renumbered {renumberResult.matchesProcessed} matches</>
+              ) : (
+                <>❌ Failed: {renumberResult.errors.join("; ")}</>
               )}
             </div>
           )}
