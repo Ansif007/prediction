@@ -904,7 +904,10 @@ export default function AdminPage() {
                           </div>
                         ) : (
                           <div className="flex gap-1.5">
-                            {[match.teamA, "DRAW", match.teamB].map((res) => (
+                            {(match.matchNumber && roundKeyFromMatchNumber(match.matchNumber) === "knockout"
+                              ? [match.teamA, match.teamB]
+                              : [match.teamA, "DRAW", match.teamB]
+                            ).map((res) => (
                               <button
                                 key={res}
                                 onClick={() => setConfirmResult({ matchId: match.id, result: res as string, goals: "" })}

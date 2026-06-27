@@ -29,7 +29,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Match } from "@/types";
-import { getTeamFlag } from "@/lib/utils";
+import { getTeamFlag, roundKeyFromMatchNumber } from "@/lib/utils";
 import { useToast } from "@/components/Toast";
 import { useMobileBackToHome } from "@/hooks/useMobileBackToHome";
 import { useRequireSetup } from "@/hooks/useRequireSetup";
@@ -256,8 +256,15 @@ export default function PredictPage({
               <Target className="w-5 h-5 text-red-600" />
               PREDICT THE OUTCOME OF THE MATCH <span className="text-xs text-red-400 normal-case font-bold ml-auto tracking-normal">(2 Points)</span>
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {[match.teamA, "DRAW", match.teamB].map((option) => (
+            <div className={`grid grid-cols-1 gap-4 ${
+              match.matchNumber && roundKeyFromMatchNumber(match.matchNumber) === "knockout"
+                ? "md:grid-cols-2"
+                : "md:grid-cols-3"
+            }`}>
+              {(match.matchNumber && roundKeyFromMatchNumber(match.matchNumber) === "knockout"
+                ? [match.teamA, match.teamB]
+                : [match.teamA, "DRAW", match.teamB]
+              ).map((option) => (
                 <button
                   key={option}
                   disabled={isLocked || isAdmin}
