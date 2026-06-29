@@ -32,8 +32,12 @@ import { useMobileBackToHome } from "@/hooks/useMobileBackToHome";
 import { useAuth } from "@/contexts/AuthContext";
 import { backfillRoundPoints, BackfillResult } from "@/lib/migration";
 import { renumberMatches, RenumberResult } from "@/lib/renumber";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line,
+} from "recharts";
 
-type AdminTab = 'matches' | 'users' | 'notices';
+type AdminTab = 'matches' | 'users' | 'notices' | 'stats';
 
 export default function AdminPage() {
   useMobileBackToHome();
@@ -51,6 +55,7 @@ export default function AdminPage() {
   const [confirmResult, setConfirmResult] = useState<{ matchId: string, result: string, goals: string } | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [matchTab, setMatchTab] = useState<'upcoming' | 'completed'>('upcoming');
+  const [statsMatchTab, setStatsMatchTab] = useState<'all' | 'upcoming' | 'completed'>('all');
   const [isLeaderboardEnabled, setIsLeaderboardEnabled] = useState(true);
   const [togglingLeaderboard, setTogglingLeaderboard] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -61,6 +66,31 @@ export default function AdminPage() {
     activeMatches: 0
   });
   const [incompleteCount, setIncompleteCount] = useState(0);
+  const [detailStats, setDetailStats] = useState({
+    winnerAccuracy: 0,
+    goalsAccuracy: 0,
+    combinedAccuracy: 0,
+    activePct: 0,
+    totalPredictions: 0,
+    avgPerUser: 0,
+    avgPerMatch: 0,
+    roundStats: [] as {
+      label: string; predictions: number; avgPerMatch: number;
+      winnerAccuracy: number; goalsAccuracy: number; uniqueUsers: number; matches: number;
+    }[],
+    matchDetails: [] as {
+      teamA: string; teamB: string; matchNumber?: number; result: string | null;
+      totalGoalsResult: string | null; status: string; totalPredictions: number;
+      teamAPicks: number; drawPicks: number; teamBPicks: number;
+      winnerCorrect: number; goalsCorrect: number; scored: boolean;
+      pts3: number; pts2: number; pts1: number; pts0: number;
+    }[],
+    deptEngagement: [] as { dept: string; active: number; predictions: number }[],
+    accuracyTrend: [] as { label: string; winnerAcc: number; goalsAcc: number }[],
+    userDistribution: [] as { range: string; count: number }[],
+    dailyTrend: [] as { date: string; predictions: number }[],
+    engagementTrend: [] as { label: string; predictions: number }[],
+  });
   const [backfilling, setBackfilling] = useState(false);
   const [backfillResult, setBackfillResult] = useState<BackfillResult | null>(null);
   const [renumbering, setRenumbering] = useState(false);
@@ -141,6 +171,224 @@ export default function AdminPage() {
       setIsLeaderboardEnabled(
         settingsSnap.exists() ? settingsSnap.data().isLeaderboardEnabled !== false : true
       );
+
+      // Compute detailed stats
+      const regularUsers = usersData.filter(u => u.role === "user");
+      const totalUsers = regularUsers.length;
+      const totalPreds = preds.length;
+
+      let correctWinner = 0;
+      let correctGoals = 0;
+      let completedScored = 0;
+
+      const roundStatsInit = [
+        { label: "Round 1", predictions: 0, avgPerMatch: 0, winnerCorrect: 0, winnerTotal: 0, goalsCorrect: 0, goalsTotal: 0, uniqueUsers: new Set<string>(), matches: 0 },
+        { label: "Round 2", predictions: 0, avgPerMatch: 0, winnerCorrect: 0, winnerTotal: 0, goalsCorrect: 0, goalsTotal: 0, uniqueUsers: new Set<string>(), matches: 0 },
+        { label: "Round 3", predictions: 0, avgPerMatch: 0, winnerCorrect: 0, winnerTotal: 0, goalsCorrect: 0, goalsTotal: 0, uniqueUsers: new Set<string>(), matches: 0 },
+        { label: "Knockout", predictions: 0, avgPerMatch: 0, winnerCorrect: 0, winnerTotal: 0, goalsCorrect: 0, goalsTotal: 0, uniqueUsers: new Set<string>(), matches: 0 },
+      ];
+
+      const matchDetails: typeof detailStats.matchDetails = [];
+      const deptMap = new Map<string, { active: Set<string>; predictions: number }>();
+      const userPredCount = new Map<string, number>();
+      const accuracyTrend: { label: string; winnerAcc: number; goalsAcc: number }[] = [];
+
+      const roundKey = (mn: number) =>
+        mn <= 24 ? 0 : mn <= 48 ? 1 : mn <= 72 ? 2 : 3;
+
+      // Build department set from users for dept engagement
+      for (const u of regularUsers) {
+        const dept = u.department || "others";
+        if (!deptMap.has(dept)) deptMap.set(dept, { active: new Set(), predictions: 0 });
+      }
+
+      // Sort matches chronologically for accuracy trend
+      const sortedCompleted = [...matchesRaw]
+        .filter(m => m.status === "completed" && m.result)
+        .sort((a, b) => {
+          const tA = a.kickoffTime instanceof Timestamp ? a.kickoffTime.toDate().getTime() : new Date(a.kickoffTime as string).getTime();
+          const tB = b.kickoffTime instanceof Timestamp ? b.kickoffTime.toDate().getTime() : new Date(b.kickoffTime as string).getTime();
+          return tA - tB;
+        });
+      let trendWinner = 0;
+      let trendGoals = 0;
+      let totalPredsSoFar = 0;
+
+      for (const p of preds) {
+        const match = matchesRaw.find(m => m.id === p.matchId);
+        if (!match) continue;
+        userPredCount.set(p.uid, (userPredCount.get(p.uid) || 0) + 1);
+
+        if (match.matchNumber) {
+          const idx = roundKey(match.matchNumber);
+          roundStatsInit[idx].predictions++;
+          roundStatsInit[idx].uniqueUsers.add(p.uid);
+        }
+
+        // Department engagement
+        const user = regularUsers.find(u => u.uid === p.uid);
+        if (user) {
+          const dept = user.department || "others";
+          if (!deptMap.has(dept)) deptMap.set(dept, { active: new Set(), predictions: 0 });
+          const entry = deptMap.get(dept)!;
+          entry.active.add(p.uid);
+          entry.predictions++;
+        }
+
+        if (match.status !== "completed" || !match.result) continue;
+
+        completedScored++;
+        if (p.pointsAwarded) {
+          if (p.winnerPrediction === match.result) correctWinner++;
+          if (p.goalsPrediction === match.totalGoalsResult) correctGoals++;
+        }
+
+        if (match.matchNumber) {
+          const idx = roundKey(match.matchNumber);
+          roundStatsInit[idx].winnerTotal++;
+          if (p.pointsAwarded && p.winnerPrediction === match.result) roundStatsInit[idx].winnerCorrect++;
+          if (p.pointsAwarded && p.goalsPrediction === match.totalGoalsResult) roundStatsInit[idx].goalsCorrect++;
+          if (p.pointsAwarded) roundStatsInit[idx].goalsTotal++;
+        }
+      }
+
+      // Build match details
+      const sortedMatches = [...enrichedMatches].sort((a, b) => {
+        const mnA = a.matchNumber ?? 999;
+        const mnB = b.matchNumber ?? 999;
+        if (mnA !== mnB) return mnA - mnB;
+        const tA = a.kickoffTime instanceof Timestamp ? a.kickoffTime.toDate().getTime() : new Date(a.kickoffTime as string).getTime();
+        const tB = b.kickoffTime instanceof Timestamp ? b.kickoffTime.toDate().getTime() : new Date(b.kickoffTime as string).getTime();
+        return tA - tB;
+      });
+
+      for (const m of sortedMatches) {
+        const matchPreds = preds.filter(p => p.matchId === m.id);
+        let wCorrect = 0;
+        let gCorrect = 0;
+        let pts3 = 0, pts2 = 0, pts1 = 0, pts0 = 0;
+        for (const p of matchPreds) {
+          if (m.status === "completed" && p.pointsAwarded) {
+            const w = p.winnerPrediction === m.result;
+            const g = p.goalsPrediction === m.totalGoalsResult;
+            if (w) wCorrect++;
+            if (g) gCorrect++;
+            if (w && g) pts3++;
+            else if (w) pts2++;
+            else if (g) pts1++;
+            else pts0++;
+          }
+        }
+        matchDetails.push({
+          teamA: m.teamA, teamB: m.teamB, matchNumber: m.matchNumber,
+          result: m.result ?? null, totalGoalsResult: m.totalGoalsResult ?? null,
+          status: m.status,
+          totalPredictions: m.stats?.total || 0,
+          teamAPicks: m.stats?.teamA || 0,
+          drawPicks: m.stats?.draw || 0,
+          teamBPicks: m.stats?.teamB || 0,
+          winnerCorrect: wCorrect,
+          goalsCorrect: gCorrect,
+          pts3, pts2, pts1, pts0,
+          scored: m.status === "completed",
+        });
+      }
+
+      // Accuracy trend by chronological completed match
+      for (const m of sortedCompleted) {
+        const md = matchDetails.find(d => d.teamA === m.teamA && d.teamB === m.teamB && d.status === "completed");
+        if (!md || md.totalPredictions === 0) continue;
+        trendWinner += md.winnerCorrect;
+        trendGoals += md.goalsCorrect;
+        totalPredsSoFar += md.totalPredictions;
+        accuracyTrend.push({
+          label: md.matchNumber ? `#${md.matchNumber}` : `${md.teamA.slice(0, 3)} vs ${md.teamB.slice(0, 3)}`,
+          winnerAcc: Math.round((trendWinner / totalPredsSoFar) * 100),
+          goalsAcc: Math.round((trendGoals / totalPredsSoFar) * 100),
+        });
+      }
+
+      // Daily prediction trend
+      const dayTotals = new Map<string, { display: string; ts: number; count: number }>();
+      for (const m of enrichedMatches) {
+        const t = m.kickoffTime instanceof Timestamp ? m.kickoffTime.toDate().getTime() : new Date(m.kickoffTime as string).getTime();
+        const d = new Date(t);
+        const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+        const display = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+        if (!dayTotals.has(key)) dayTotals.set(key, { display, ts: t, count: 0 });
+        dayTotals.get(key)!.count += (m.stats?.total || 0);
+      }
+      const dailyTrend = Array.from(dayTotals.values())
+        .sort((a, b) => a.ts - b.ts)
+        .map(d => ({ date: d.display, predictions: d.count }));
+
+      // Engagement per match trend
+      const engagementTrend = matchDetails.map(m => ({
+        label: m.matchNumber ? `#${m.matchNumber}` : `${m.teamA.slice(0, 3)}vs${m.teamB.slice(0, 3)}`,
+        predictions: m.totalPredictions,
+      }));
+
+      // User distribution buckets
+      const buckets = [0, 0, 0, 0, 0];
+      for (const count of userPredCount.values()) {
+        if (count <= 5) buckets[0]++;
+        else if (count <= 10) buckets[1]++;
+        else if (count <= 20) buckets[2]++;
+        else if (count <= 50) buckets[3]++;
+        else buckets[4]++;
+      }
+
+      // Round stats finalize
+      const completedMatchesPerRound = [0, 0, 0, 0];
+      for (const m of matchesRaw) {
+        if (m.matchNumber && m.status === "completed") {
+          completedMatchesPerRound[roundKey(m.matchNumber)]++;
+        }
+      }
+      const roundStats = roundStatsInit.map((r, i) => ({
+        label: r.label,
+        predictions: r.predictions,
+        avgPerMatch: completedMatchesPerRound[i] > 0 ? Number((r.predictions / completedMatchesPerRound[i]).toFixed(1)) : 0,
+        winnerAccuracy: r.winnerTotal > 0 ? Math.round((r.winnerCorrect / r.winnerTotal) * 100) : 0,
+        goalsAccuracy: r.goalsTotal > 0 ? Math.round((r.goalsCorrect / r.goalsTotal) * 100) : 0,
+        uniqueUsers: r.uniqueUsers.size,
+        matches: completedMatchesPerRound[i],
+      }));
+
+      // Count total matches for avgPerMatch
+      const totalCompletedMatches = matchesRaw.filter(m => m.status === "completed").length;
+
+      // Department engagement
+      const deptEngagement = Array.from(deptMap.entries())
+        .map(([dept, data]) => ({
+          dept,
+          active: data.active.size,
+          predictions: data.predictions,
+        }))
+        .sort((a, b) => b.active - a.active);
+
+      setDetailStats({
+        winnerAccuracy: completedScored > 0 ? Math.round((correctWinner / completedScored) * 100) : 0,
+        goalsAccuracy: completedScored > 0 ? Math.round((correctGoals / completedScored) * 100) : 0,
+        combinedAccuracy: completedScored > 0 ? Math.round(((correctWinner + correctGoals) / (completedScored * 2)) * 100) : 0,
+        activePct: totalUsers > 0 ? Math.round((userPredCount.size / totalUsers) * 100) : 0,
+        totalPredictions: totalPreds,
+        avgPerUser: totalUsers > 0 ? Number((totalPreds / totalUsers).toFixed(1)) : 0,
+        avgPerMatch: totalCompletedMatches > 0 ? Number((completedScored / totalCompletedMatches).toFixed(1)) : 0,
+        roundStats,
+        matchDetails,
+        deptEngagement,
+        accuracyTrend,
+        dailyTrend,
+        engagementTrend,
+        userDistribution: [
+          { range: "1–5 preds", count: buckets[0] },
+          { range: "6–10 preds", count: buckets[1] },
+          { range: "11–20 preds", count: buckets[2] },
+          { range: "21–50 preds", count: buckets[3] },
+          { range: "50+ preds", count: buckets[4] },
+        ],
+      });
     } catch (error) {
       console.error("Error loading admin data:", error);
     } finally {
@@ -564,6 +812,7 @@ export default function AdminPage() {
           {[
             { id: 'matches', label: 'Battles', icon: LayoutGrid },
             { id: 'users', label: 'Participants', icon: Users },
+            { id: 'stats', label: 'Statistics', icon: BarChart3 },
             { id: 'notices', label: 'Notice Board', icon: Bell }
           ].map((tab) => (
             <button
@@ -750,6 +999,7 @@ export default function AdminPage() {
             <h2 className="text-2xl font-black italic tracking-[0.1em] text-red-700 font-bebas uppercase flex items-center gap-3">
               {activeTab === 'matches' && <><Settings className="w-6 h-6" /> Match Deployment</>}
               {activeTab === 'users' && <><Users className="w-6 h-6" /> User Roster</>}
+              {activeTab === 'stats' && <><BarChart3 className="w-6 h-6" /> Statistics</>}
               {activeTab === 'notices' && <><Bell className="w-6 h-6" /> Notice Management</>}
             </h2>
             
@@ -795,24 +1045,26 @@ export default function AdminPage() {
             </div>
           </div>
 
-          <div className="px-8 py-4 border-b border-red-50 flex gap-1">
-            <button
-              onClick={() => setMatchTab('upcoming')}
-              className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${
-                matchTab === 'upcoming' ? 'bg-red-50 text-red-700 shadow-sm' : 'text-red-400 hover:text-red-600'
-              }`}
-            >
-              Upcoming
-            </button>
-            <button
-              onClick={() => setMatchTab('completed')}
-              className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${
-                matchTab === 'completed' ? 'bg-red-50 text-red-700 shadow-sm' : 'text-red-400 hover:text-red-600'
-              }`}
-            >
-              Completed
-            </button>
-          </div>
+          {activeTab === 'matches' && (
+            <div className="px-8 py-4 border-b border-red-50 flex gap-1">
+              <button
+                onClick={() => setMatchTab('upcoming')}
+                className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${
+                  matchTab === 'upcoming' ? 'bg-red-50 text-red-700 shadow-sm' : 'text-red-400 hover:text-red-600'
+                }`}
+              >
+                Upcoming
+              </button>
+              <button
+                onClick={() => setMatchTab('completed')}
+                className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${
+                  matchTab === 'completed' ? 'bg-red-50 text-red-700 shadow-sm' : 'text-red-400 hover:text-red-600'
+                }`}
+              >
+                Completed
+              </button>
+            </div>
+          )}
           <div className="overflow-x-auto">
             {activeTab === 'matches' && (
               <table className="w-full text-left border-collapse">
@@ -1051,6 +1303,287 @@ export default function AdminPage() {
                   ))}
                 </tbody>
               </table>
+            )}
+
+            {activeTab === 'stats' && (
+              <div className="p-6 md:p-8 space-y-10">
+
+                {/* ── Section 1: Prediction Accuracy ── */}
+                <div>
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 bg-red-600 rounded-xl flex items-center justify-center shadow-lg shadow-red-200">
+                      <Target className="w-5 h-5 text-white" />
+                    </div>
+                    <h2 className="text-xl font-black italic tracking-[0.08em] text-red-700 font-bebas uppercase">Prediction Accuracy</h2>
+                  </div>
+
+                  {/* Metric Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                    <div className="bg-gradient-to-br from-white to-red-50 rounded-2xl border border-red-100 p-6 text-center shadow-sm hover:shadow-md transition-shadow">
+                      <div className="text-4xl font-black italic text-red-600 font-bebas">{detailStats.winnerAccuracy}%</div>
+                      <div className="text-[10px] font-bold text-red-300 uppercase tracking-widest mt-1">Winner Accuracy</div>
+                      <div className="mt-2 w-full bg-red-100 rounded-full h-1.5 overflow-hidden">
+                        <div className="bg-red-600 h-full rounded-full transition-all" style={{ width: `${detailStats.winnerAccuracy}%` }} />
+                      </div>
+                    </div>
+                    <div className="bg-gradient-to-br from-white to-red-50 rounded-2xl border border-red-100 p-6 text-center shadow-sm hover:shadow-md transition-shadow">
+                      <div className="text-4xl font-black italic text-red-600 font-bebas">{detailStats.goalsAccuracy}%</div>
+                      <div className="text-[10px] font-bold text-red-300 uppercase tracking-widest mt-1">Goals Accuracy</div>
+                      <div className="mt-2 w-full bg-red-100 rounded-full h-1.5 overflow-hidden">
+                        <div className="bg-red-600 h-full rounded-full transition-all" style={{ width: `${detailStats.goalsAccuracy}%` }} />
+                      </div>
+                    </div>
+                    <div className="bg-gradient-to-br from-white to-red-50 rounded-2xl border border-red-100 p-6 text-center shadow-sm hover:shadow-md transition-shadow">
+                      <div className="text-4xl font-black italic text-red-600 font-bebas">{detailStats.combinedAccuracy}%</div>
+                      <div className="text-[10px] font-bold text-red-300 uppercase tracking-widest mt-1">Combined Accuracy</div>
+                      <div className="mt-2 w-full bg-red-100 rounded-full h-1.5 overflow-hidden">
+                        <div className="bg-red-600 h-full rounded-full transition-all" style={{ width: `${detailStats.combinedAccuracy}%` }} />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Accuracy Trend Line Chart */}
+                  <div className="bg-white rounded-2xl border border-red-50 p-6 shadow-sm">
+                    <h3 className="text-sm font-black uppercase tracking-wider text-red-700 font-bebas italic mb-4">Accuracy Trend (Cumulative)</h3>
+                    {detailStats.accuracyTrend.length > 0 ? (
+                      <div className="h-72">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={detailStats.accuracyTrend}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#fee2e2" />
+                            <XAxis dataKey="label" tick={{ fontSize: 9, fontWeight: 700, fill: '#dc2626' }} axisLine={{ stroke: '#fecaca' }} tickLine={false} interval="preserveStartEnd" />
+                            <YAxis tick={{ fontSize: 10, fill: '#fca5a5' }} axisLine={false} tickLine={false} domain={[0, 100]} />
+                            <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #fecaca', fontSize: 12, fontWeight: 700 }} />
+                            <Line type="monotone" dataKey="winnerAcc" name="Winner %" stroke="#dc2626" strokeWidth={2} dot={{ r: 3, fill: '#dc2626' }} />
+                            <Line type="monotone" dataKey="goalsAcc" name="Goals %" stroke="#f87171" strokeWidth={2} dot={{ r: 3, fill: '#f87171' }} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    ) : (
+                      <p className="text-center text-red-300 text-xs font-bold uppercase tracking-widest py-12">No completed matches yet</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* ── Section 2: Engagement ── */}
+                <div>
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 bg-red-600 rounded-xl flex items-center justify-center shadow-lg shadow-red-200">
+                      <Activity className="w-5 h-5 text-white" />
+                    </div>
+                    <h2 className="text-xl font-black italic tracking-[0.08em] text-red-700 font-bebas uppercase">Engagement</h2>
+                  </div>
+
+                  {/* Metric Cards */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+                    <div className="bg-gradient-to-br from-white to-red-50 rounded-2xl border border-red-100 p-5 text-center shadow-sm hover:shadow-md transition-shadow">
+                      <div className="text-3xl font-black italic text-red-600 font-bebas">{detailStats.activePct}%</div>
+                      <div className="text-[9px] font-bold text-red-300 uppercase tracking-widest mt-1">Active Users</div>
+                    </div>
+                    <div className="bg-gradient-to-br from-white to-red-50 rounded-2xl border border-red-100 p-5 text-center shadow-sm hover:shadow-md transition-shadow">
+                      <div className="text-3xl font-black italic text-red-600 font-bebas">{detailStats.totalPredictions}</div>
+                      <div className="text-[9px] font-bold text-red-300 uppercase tracking-widest mt-1">Total Predictions</div>
+                    </div>
+                    <div className="bg-gradient-to-br from-white to-red-50 rounded-2xl border border-red-100 p-5 text-center shadow-sm hover:shadow-md transition-shadow">
+                      <div className="text-3xl font-black italic text-red-600 font-bebas">{detailStats.avgPerUser}</div>
+                      <div className="text-[9px] font-bold text-red-300 uppercase tracking-widest mt-1">Avg / User</div>
+                    </div>
+                    <div className="bg-gradient-to-br from-white to-red-50 rounded-2xl border border-red-100 p-5 text-center shadow-sm hover:shadow-md transition-shadow">
+                      <div className="text-3xl font-black italic text-red-600 font-bebas">{detailStats.avgPerMatch}</div>
+                      <div className="text-[9px] font-bold text-red-300 uppercase tracking-widest mt-1">Avg / Match</div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* User Activity Pie */}
+                    <div className="bg-white rounded-2xl border border-red-50 p-6 shadow-sm">
+                      <h3 className="text-sm font-black uppercase tracking-wider text-red-700 font-bebas italic mb-4">User Activity Distribution</h3>
+                      {detailStats.userDistribution.some(d => d.count > 0) ? (
+                        <div className="h-64">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie data={detailStats.userDistribution} dataKey="count" nameKey="range" cx="50%" cy="50%" outerRadius={80} label={({ payload }) => `${payload.range}: ${payload.count}`}>
+                                {detailStats.userDistribution.map((_, i) => (
+                                  <Cell key={i} fill={['#dc2626', '#ef4444', '#f87171', '#fca5a5', '#fecaca'][i]} />
+                                ))}
+                              </Pie>
+                              <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #fecaca', fontSize: 12, fontWeight: 700 }} />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
+                      ) : (
+                        <p className="text-center text-red-300 text-xs font-bold uppercase tracking-widest py-12">No data yet</p>
+                      )}
+                    </div>
+
+                    {/* Department Engagement Bar */}
+                    <div className="bg-white rounded-2xl border border-red-50 p-6 shadow-sm">
+                      <h3 className="text-sm font-black uppercase tracking-wider text-red-700 font-bebas italic mb-4">Department Activity</h3>
+                      {detailStats.deptEngagement.length > 0 ? (
+                        <div className="h-64">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={detailStats.deptEngagement} layout="vertical" barCategoryGap="25%">
+                              <CartesianGrid strokeDasharray="3 3" stroke="#fee2e2" horizontal={false} />
+                              <XAxis type="number" tick={{ fontSize: 10, fill: '#fca5a5' }} axisLine={false} tickLine={false} />
+                              <YAxis type="category" dataKey="dept" tick={{ fontSize: 10, fontWeight: 700, fill: '#dc2626' }} axisLine={{ stroke: '#fecaca' }} tickLine={false} width={80} />
+                              <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #fecaca', fontSize: 12, fontWeight: 700 }} />
+                              <Bar dataKey="active" name="Active Users" fill="#dc2626" radius={[0, 6, 6, 0]} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                      ) : (
+                        <p className="text-center text-red-300 text-xs font-bold uppercase tracking-widest py-12">No department data</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Engagement per Match Trend */}
+                  <div className="bg-white rounded-2xl border border-red-50 p-6 shadow-sm mt-6">
+                    <h3 className="text-sm font-black uppercase tracking-wider text-red-700 font-bebas italic mb-4">Engagement per Match</h3>
+                    {detailStats.engagementTrend.length > 0 ? (
+                      <div className="h-72">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={detailStats.engagementTrend}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#fee2e2" />
+                            <XAxis dataKey="label" tick={{ fontSize: 9, fontWeight: 700, fill: '#dc2626' }} axisLine={{ stroke: '#fecaca' }} tickLine={false} interval="preserveStartEnd" />
+                            <YAxis tick={{ fontSize: 10, fill: '#fca5a5' }} axisLine={false} tickLine={false} />
+                            <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #fecaca', fontSize: 12, fontWeight: 700 }} />
+                            <Line type="monotone" dataKey="predictions" name="Predictions" stroke="#dc2626" strokeWidth={2} dot={{ r: 3, fill: '#dc2626' }} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    ) : (
+                      <p className="text-center text-red-300 text-xs font-bold uppercase tracking-widest py-12">No match data</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* ── Section 3: Per-Match Stats ── */}
+                <div>
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 bg-red-600 rounded-xl flex items-center justify-center shadow-lg shadow-red-200">
+                      <LayoutGrid className="w-5 h-5 text-white" />
+                    </div>
+                    <h2 className="text-xl font-black italic tracking-[0.08em] text-red-700 font-bebas uppercase">Per-Match Stats</h2>
+                  </div>
+
+                  {/* Match Filter Tabs */}
+                  <div className="flex gap-1 mb-5 bg-red-50 p-1 rounded-xl w-fit">
+                    {(['all', 'upcoming', 'completed'] as const).map((tab) => (
+                      <button
+                        key={tab}
+                        onClick={() => setStatsMatchTab(tab)}
+                        className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                          statsMatchTab === tab ? 'bg-red-600 text-white shadow-sm' : 'text-red-400 hover:text-red-600'
+                        }`}
+                      >
+                        {tab === 'all' ? 'All Matches' : tab === 'upcoming' ? 'Upcoming' : 'Completed'}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Match Cards Grid */}
+                  {detailStats.matchDetails.filter(m =>
+                    statsMatchTab === 'all' ? true :
+                    statsMatchTab === 'upcoming' ? m.status !== 'completed' : m.status === 'completed'
+                  ).length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[600px] overflow-y-auto pr-2">
+                      {detailStats.matchDetails
+                        .filter(m => statsMatchTab === 'all' ? true :
+                          statsMatchTab === 'upcoming' ? m.status !== 'completed' : m.status === 'completed'
+                        )
+                        .map((m, i) => {
+                          const total = m.teamAPicks + m.drawPicks + m.teamBPicks || 1;
+                          return (
+                            <div key={i} className="bg-white rounded-2xl border border-red-50 p-5 shadow-sm hover:shadow-md transition-shadow">
+                              <div className="flex items-center justify-between mb-3">
+                                <span className="text-sm font-black italic uppercase tracking-tighter text-red-700 font-bebas leading-tight">
+                                  {m.teamA} <span className="text-red-300">vs</span> {m.teamB}
+                                </span>
+                                {m.matchNumber && (
+                                  <span className="text-[9px] font-black text-red-400 bg-red-50 px-2 py-0.5 rounded-full">#{m.matchNumber}</span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 text-[10px] text-red-400 font-bold uppercase tracking-widest mb-3">
+                                <span>{m.totalPredictions} predictions</span>
+                              </div>
+                              {/* Winner pick distribution mini bar */}
+                              <div className="h-5 w-full bg-red-50 rounded-full overflow-hidden flex mb-2">
+                                <div style={{ width: `${(m.teamAPicks / total) * 100}%` }} className="bg-red-600 h-full transition-all" title={`${m.teamA}: ${m.teamAPicks}`} />
+                                <div style={{ width: `${(m.drawPicks / total) * 100}%` }} className="bg-red-400 h-full transition-all" title={`Draw: ${m.drawPicks}`} />
+                                <div style={{ width: `${(m.teamBPicks / total) * 100}%` }} className="bg-red-200 h-full transition-all" title={`${m.teamB}: ${m.teamBPicks}`} />
+                              </div>
+                              <div className="flex justify-between text-[8px] font-bold text-red-300 uppercase tracking-widest">
+                                <span>{m.teamA.slice(0, 8)}: {m.teamAPicks}</span>
+                                <span>Draw: {m.drawPicks}</span>
+                                <span>{m.teamB.slice(0, 8)}: {m.teamBPicks}</span>
+                              </div>
+                              {m.scored && (
+                                <div className="mt-3 pt-3 border-t border-red-50">
+                                  <div className="flex items-center justify-between text-[10px] font-bold">
+                                    <span className="text-red-400">Result: {m.result} ({m.totalGoalsResult})</span>
+                                  </div>
+                                  <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-[10px]">
+                                    <span className="text-emerald-700 font-black">🟢 3pts: {m.pts3}</span>
+                                    <span className="text-amber-600 font-black">🟡 2pts: {m.pts2}</span>
+                                    <span className="text-blue-600 font-black">🔵 1pt: {m.pts1}</span>
+                                    <span className="text-gray-400 font-black">⚪ 0pt: {m.pts0}</span>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                    </div>
+                  ) : (
+                    <p className="text-center text-red-300 text-xs font-bold uppercase tracking-widest py-12">No matches found</p>
+                  )}
+                </div>
+
+                {/* ── Section 4: Round Breakdown ── */}
+                <div>
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 bg-red-600 rounded-xl flex items-center justify-center shadow-lg shadow-red-200">
+                      <BarChart3 className="w-5 h-5 text-white" />
+                    </div>
+                    <h2 className="text-xl font-black italic tracking-[0.08em] text-red-700 font-bebas uppercase">Round Breakdown</h2>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    {detailStats.roundStats.map((r) => (
+                      <div key={r.label} className="bg-gradient-to-br from-white to-red-50 rounded-2xl border border-red-100 p-6 shadow-sm hover:shadow-md transition-all">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="text-lg font-black italic text-red-700 font-bebas">{r.label}</h3>
+                          <span className="text-[9px] font-black text-red-400 bg-red-100 px-2 py-0.5 rounded-full">{r.matches} matches</span>
+                        </div>
+                        <div className="space-y-3">
+                          <div className="flex justify-between items-end">
+                            <span className="text-[10px] font-bold text-red-300 uppercase tracking-widest">Predictions</span>
+                            <span className="text-2xl font-black italic text-red-600 font-bebas">{r.predictions}</span>
+                          </div>
+                          <div className="flex justify-between items-end">
+                            <span className="text-[10px] font-bold text-red-300 uppercase tracking-widest">Avg / Match</span>
+                            <span className="text-lg font-black italic text-red-500 font-bebas">{r.avgPerMatch}</span>
+                          </div>
+                          <div className="flex justify-between items-end">
+                            <span className="text-[10px] font-bold text-red-300 uppercase tracking-widest">Unique Users</span>
+                            <span className="text-lg font-black italic text-red-500 font-bebas">{r.uniqueUsers}</span>
+                          </div>
+                          <hr className="border-red-100" />
+                          <div className="flex justify-between items-end">
+                            <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Winner Acc</span>
+                            <span className="text-xl font-black italic text-emerald-600 font-bebas">{r.winnerAccuracy}%</span>
+                          </div>
+                          <div className="flex justify-between items-end">
+                            <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Goals Acc</span>
+                            <span className="text-xl font-black italic text-emerald-600 font-bebas">{r.goalsAccuracy}%</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+              </div>
             )}
 
             {activeTab === 'notices' && (
