@@ -62,7 +62,7 @@ export default function Dashboard() {
           if (aDone !== bDone) return aDone - bDone;
           const timeA = a.kickoffTime instanceof Timestamp ? a.kickoffTime.toDate().getTime() : new Date(a.kickoffTime as string | number | Date).getTime();
           const timeB = b.kickoffTime instanceof Timestamp ? b.kickoffTime.toDate().getTime() : new Date(b.kickoffTime as string | number | Date).getTime();
-          return timeA - timeB;
+          return aDone === 1 ? timeB - timeA : timeA - timeB;
         });
         setMatches(matchList);
 
