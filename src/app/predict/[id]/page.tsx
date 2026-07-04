@@ -29,7 +29,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Match } from "@/types";
-import { getTeamFlag, roundKeyFromMatchNumber } from "@/lib/utils";
+import { getTeamFlag, roundKeyFromMatchNumber, getStageFromMatchNumber, STAGE_POINTS } from "@/lib/utils";
 import { useToast } from "@/components/Toast";
 import { useMobileBackToHome } from "@/hooks/useMobileBackToHome";
 import { useRequireSetup } from "@/hooks/useRequireSetup";
@@ -181,6 +181,11 @@ export default function PredictPage({
                 <p className="text-[10px] font-bold text-red-300 uppercase tracking-[0.3em]">
                   {match.teamA} vs {match.teamB}
                 </p>
+                {match.matchNumber != null && (
+                  <span className="inline-block px-3 py-1 rounded-full bg-red-50 text-red-600 text-[9px] font-black uppercase tracking-widest leading-relaxed">
+                    {getStageFromMatchNumber(match.matchNumber)}
+                  </span>
+                )}
               </div>
 
               <div className="w-full max-w-xl bg-white/80 backdrop-blur-md rounded-[2.5rem] border border-red-100 overflow-hidden shadow-2xl shadow-red-200/50">
@@ -228,6 +233,11 @@ export default function PredictPage({
                 }`}>
                   {match.status}
                 </div>
+                {match.matchNumber != null && (
+                  <span className="inline-block px-3 py-1 rounded-full bg-red-50 text-red-600 border border-red-100 text-[9px] font-black uppercase tracking-widest leading-relaxed">
+                    {getStageFromMatchNumber(match.matchNumber)}
+                  </span>
+                )}
               </div>
               
               <h1 className="text-4xl md:text-6xl font-black italic tracking-[0.1em] text-red-700 font-bebas uppercase leading-[1.1] flex flex-wrap items-center justify-center gap-4 overflow-visible">
@@ -254,7 +264,7 @@ export default function PredictPage({
           <section>
             <h2 className="text-xl font-black italic tracking-[0.1em] text-red-700 font-bebas mb-6 uppercase flex items-center gap-3">
               <Target className="w-5 h-5 text-red-600" />
-              PREDICT THE OUTCOME OF THE MATCH <span className="text-xs text-red-400 normal-case font-bold ml-auto tracking-normal">(2 Points)</span>
+              PREDICT THE OUTCOME OF THE MATCH <span className="text-xs text-red-400 normal-case font-bold ml-auto tracking-normal">({STAGE_POINTS[getStageFromMatchNumber(match.matchNumber!)].winnerPoints} Points)</span>
             </h2>
             <div className={`grid grid-cols-1 gap-4 ${
               match.matchNumber && roundKeyFromMatchNumber(match.matchNumber) === "knockout"
@@ -294,7 +304,7 @@ export default function PredictPage({
           <section>
             <h2 className="text-xl font-black italic tracking-[0.1em] text-red-700 font-bebas mb-6 uppercase flex items-center gap-3">
               <Trophy className="w-5 h-5 text-red-600" />
-              HOW MANY GOALS WOULD BE SCORED IN TOTAL ? <span className="text-xs text-red-400 normal-case font-bold ml-auto tracking-normal">(1 Point)</span>
+              HOW MANY GOALS WOULD BE SCORED IN TOTAL ? <span className="text-xs text-red-400 normal-case font-bold ml-auto tracking-normal">({STAGE_POINTS[getStageFromMatchNumber(match.matchNumber!)].goalsPoints} Point{STAGE_POINTS[getStageFromMatchNumber(match.matchNumber!)].goalsPoints > 1 ? 's' : ''})</span>
             </h2>
             <div className="grid grid-cols-3 md:grid-cols-5 gap-3 md:gap-4">
               {["0", "1", "2", "3", "4+"].map((num) => (

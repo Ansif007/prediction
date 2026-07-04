@@ -14,7 +14,7 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { Calendar, ChevronRight, Trophy, Star, CheckCircle2 } from "lucide-react";
 import { Match } from "@/types";
-import { formatKickoff, getTeamFlag } from "@/lib/utils";
+import { formatKickoff, getTeamFlag, getStageFromMatchNumber } from "@/lib/utils";
 import { useMobileBackToHome } from "@/hooks/useMobileBackToHome";
 import { useRequireSetup } from "@/hooks/useRequireSetup";
 import { useAuth } from "@/contexts/AuthContext";
@@ -272,6 +272,12 @@ function MatchCardContent({ match, currentTime, isPredicted }: { match: Match, c
             }
             return null;
           })()}
+
+          {match.matchNumber != null && (
+            <div className="px-3 py-1 rounded-full bg-red-50 text-red-600 border border-red-100 text-[8px] font-black uppercase tracking-widest leading-relaxed">
+              {getStageFromMatchNumber(match.matchNumber)}
+            </div>
+          )}
 
           {match.status === 'completed' && match.totalGoalsResult && (
             <div className="flex flex-col gap-1.5">

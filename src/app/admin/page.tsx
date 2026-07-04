@@ -26,7 +26,7 @@ import {
 import Link from "next/link";
 import * as XLSX from 'xlsx';
 import { Match, UserData, Prediction, DeptData, Notice } from "@/types";
-import { formatKickoff, WORLD_CUP_2026_TEAMS, normalizeDepartment, formatDepartmentDisplay, roundKeyFromMatchNumber } from "@/lib/utils";
+import { formatKickoff, WORLD_CUP_2026_TEAMS, normalizeDepartment, formatDepartmentDisplay, roundKeyFromMatchNumber, STAGE_POINTS, getStageFromMatchNumber } from "@/lib/utils";
 import { exportMasterPredictionsReport } from "@/lib/exportPredictionsReport";
 import { useMobileBackToHome } from "@/hooks/useMobileBackToHome";
 import { useAuth } from "@/contexts/AuthContext";
@@ -628,16 +628,15 @@ export default function AdminPage() {
         // Skip admins
         if (user?.role === 'admin') continue;
   
+        const stage = getStageFromMatchNumber(matchNumber);
+        const { winnerPoints, goalsPoints } = STAGE_POINTS[stage];
+
         let pointsEarned = 0;
-        
-        // Winner Prediction (2 Points)
         if (pred.winnerPrediction === result) {
-          pointsEarned += 2;
+          pointsEarned += winnerPoints;
         }
-        
-        // Goals Prediction (1 Point)
         if (pred.goalsPrediction === goals) {
-          pointsEarned += 1;
+          pointsEarned += goalsPoints;
         }
   
         // Always mark prediction as processed to prevent double-counting even if 0 points earned
@@ -1105,9 +1104,9 @@ export default function AdminPage() {
                         </span>
                       </td>
                       <td className="px-8 py-6">
-                        {match.stage && (
+                        {match.matchNumber != null && (
                           <span className="inline-block px-2 py-1 rounded-full bg-red-50 text-red-400 border border-red-100 text-[9px] font-black uppercase tracking-widest">
-                            {match.stage.replace(/_/g, " ")}
+                            {getStageFromMatchNumber(match.matchNumber)}
                           </span>
                         )}
                       </td>

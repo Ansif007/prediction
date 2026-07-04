@@ -101,6 +101,27 @@ export function roundKeyFromMatchNumber(mn: number): "round1" | "round2" | "roun
   return "knockout";
 }
 
+export const STAGE_POINTS: Record<string, { winnerPoints: number; goalsPoints: number }> = {
+  "Group Stage": { winnerPoints: 2, goalsPoints: 1 },
+  "Round of 32": { winnerPoints: 2, goalsPoints: 1 },
+  "Round of 16": { winnerPoints: 3, goalsPoints: 1 },
+  "Quarter-Finals": { winnerPoints: 4, goalsPoints: 2 },
+  "Semi-Finals": { winnerPoints: 5, goalsPoints: 2 },
+  "Third Place": { winnerPoints: 5, goalsPoints: 2 },
+  "Final": { winnerPoints: 6, goalsPoints: 2 },
+};
+
+export function getStageFromMatchNumber(mn: number): string {
+  if (mn >= 1 && mn <= 72) return "Group Stage";
+  if (mn >= 73 && mn <= 88) return "Round of 32";
+  if (mn >= 89 && mn <= 96) return "Round of 16";
+  if (mn >= 97 && mn <= 100) return "Quarter-Finals";
+  if (mn >= 101 && mn <= 102) return "Semi-Finals";
+  if (mn === 103) return "Third Place";
+  if (mn === 104) return "Final";
+  return "Group Stage";
+}
+
 export const WORLD_CUP_2026_TEAMS = [
   "USA", "Mexico", "Canada",
   "Argentina", "Brazil", "Colombia", "Ecuador", "Paraguay", "Uruguay",
