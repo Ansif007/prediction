@@ -83,7 +83,8 @@ export const ROUND_RANGES: Record<string, [number, number] | null> = {
   round1: [1, 24],
   round2: [25, 48],
   round3: [49, 72],
-  knockout: [73, 104],
+  knockout: [73, 96],
+  finals: [97, 104],
 };
 
 export const ROUND_LABELS: Record<string, string> = {
@@ -94,11 +95,12 @@ export const ROUND_LABELS: Record<string, string> = {
   knockout: "Knockout",
 };
 
-export function roundKeyFromMatchNumber(mn: number): "round1" | "round2" | "round3" | "knockout" {
+export function roundKeyFromMatchNumber(mn: number): "round1" | "round2" | "round3" | "knockout" | "finals" {
   if (mn <= 24) return "round1";
   if (mn <= 48) return "round2";
   if (mn <= 72) return "round3";
-  return "knockout";
+  if (mn <= 96) return "knockout";
+  return "finals";
 }
 
 export const STAGE_POINTS: Record<string, { winnerPoints: number; goalsPoints: number }> = {

@@ -46,7 +46,7 @@ export interface Prediction {
   prediction?: string; // Legacy compatibility
 }
 
-export type RoundView = "overall" | "round1" | "round2" | "round3" | "knockout";
+export type RoundView = "overall" | "round1" | "round2" | "round3" | "knockout" | "finals";
 
 export interface RoundPointsData {
   id: string;
@@ -58,6 +58,7 @@ export interface RoundPointsData {
   round2: number;
   round3: number;
   knockout: number;
+  finals: number;
   overall: number;
 }
 

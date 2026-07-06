@@ -44,7 +44,7 @@ export async function backfillRoundPoints(): Promise<BackfillResult> {
     // 3. Accumulate points per user per round
     const acc = new Map<
       string,
-      { name: string; round1: number; round2: number; round3: number; knockout: number; overall: number }
+      { name: string; round1: number; round2: number; round3: number; knockout: number; finals: number; overall: number }
     >();
 
     for (const p of preds) {
@@ -63,10 +63,15 @@ export async function backfillRoundPoints(): Promise<BackfillResult> {
         round2: 0,
         round3: 0,
         knockout: 0,
+        finals: 0,
         overall: 0,
       };
 
-      entry[roundKey] += p.pointsEarned;
+      if (roundKey === "round1") entry.round1 += p.pointsEarned;
+      else if (roundKey === "round2") entry.round2 += p.pointsEarned;
+      else if (roundKey === "round3") entry.round3 += p.pointsEarned;
+      else if (roundKey === "knockout") entry.knockout += p.pointsEarned;
+      else if (roundKey === "finals") entry.finals += p.pointsEarned;
       entry.overall += p.pointsEarned;
       if (!entry.name && p.userName) entry.name = p.userName;
       acc.set(p.uid, entry);
@@ -97,6 +102,7 @@ export async function backfillRoundPoints(): Promise<BackfillResult> {
       const round2 = existing ? Math.max(existing.round2, data.round2) : data.round2;
       const round3 = existing ? Math.max(existing.round3, data.round3) : data.round3;
       const knockout = existing ? Math.max(existing.knockout, data.knockout) : data.knockout;
+      const finals = existing ? Math.max(existing.finals, data.finals) : data.finals;
 
       const rpData: RoundPointsData = {
         id: uid,
@@ -108,7 +114,8 @@ export async function backfillRoundPoints(): Promise<BackfillResult> {
         round2,
         round3,
         knockout,
-        overall: round1 + round2 + round3 + knockout,
+        finals,
+        overall: round1 + round2 + round3 + knockout + finals,
       };
 
       batch.set(doc(db, "roundPoints", uid), rpData);
