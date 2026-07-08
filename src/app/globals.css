@@ -58,6 +58,18 @@ body {
   font-family: 'Bebas Neue', sans-serif;
 }
 
+.font-anton {
+  font-family: 'Anton', sans-serif;
+}
+
+.font-oswald {
+  font-family: 'Oswald', sans-serif;
+}
+
+.font-space-mono {
+  font-family: 'Space Mono', monospace;
+}
+
 .running-letters {
   display: inline-block;
   animation: runLetters 1.6s ease-in-out infinite;
@@ -70,6 +82,14 @@ body {
 }
 
 @theme {
+  --font-anton: 'Anton', sans-serif;
+  --font-oswald: 'Oswald', sans-serif;
+  --font-space-mono: 'Space Mono', monospace;
+  --color-wc-red: #DC2626;
+  --color-wc-green: #1D6E39;
+  --color-wc-blue: #1B3B6B;
+  --color-wc-gold: #F2B705;
+  --color-wc-gold-light: #FFDD7A;
   --animate-ring: ring 2s ease-in-out infinite;
   --animate-spin-slow: spin 3s linear infinite;
 
