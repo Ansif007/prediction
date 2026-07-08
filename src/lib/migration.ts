@@ -44,7 +44,7 @@ export async function backfillRoundPoints(): Promise<BackfillResult> {
     // 3. Accumulate points per user per round
     const acc = new Map<
       string,
-      { name: string; round1: number; round2: number; round3: number; knockout: number; finals: number; overall: number }
+      { name: string; round1: number; round2: number; round3: number; knockout: number; final8: number; overall: number }
     >();
 
     for (const p of preds) {
@@ -63,7 +63,7 @@ export async function backfillRoundPoints(): Promise<BackfillResult> {
         round2: 0,
         round3: 0,
         knockout: 0,
-        finals: 0,
+        final8: 0,
         overall: 0,
       };
 
@@ -71,7 +71,7 @@ export async function backfillRoundPoints(): Promise<BackfillResult> {
       else if (roundKey === "round2") entry.round2 += p.pointsEarned;
       else if (roundKey === "round3") entry.round3 += p.pointsEarned;
       else if (roundKey === "knockout") entry.knockout += p.pointsEarned;
-      else if (roundKey === "finals") entry.finals += p.pointsEarned;
+      else if (roundKey === "final8") entry.final8 += p.pointsEarned;
       entry.overall += p.pointsEarned;
       if (!entry.name && p.userName) entry.name = p.userName;
       acc.set(p.uid, entry);
@@ -102,7 +102,7 @@ export async function backfillRoundPoints(): Promise<BackfillResult> {
       const round2 = existing ? Math.max(existing.round2, data.round2) : data.round2;
       const round3 = existing ? Math.max(existing.round3, data.round3) : data.round3;
       const knockout = existing ? Math.max(existing.knockout, data.knockout) : data.knockout;
-      const finals = existing ? Math.max(existing.finals, data.finals) : data.finals;
+      const final8 = existing ? Math.max(existing.final8, data.final8) : data.final8;
 
       const rpData: RoundPointsData = {
         id: uid,
@@ -114,8 +114,8 @@ export async function backfillRoundPoints(): Promise<BackfillResult> {
         round2,
         round3,
         knockout,
-        finals,
-        overall: round1 + round2 + round3 + knockout + finals,
+        final8,
+        overall: round1 + round2 + round3 + knockout + final8,
       };
 
       batch.set(doc(db, "roundPoints", uid), rpData);
