@@ -267,11 +267,13 @@ export default function PredictPage({
               PREDICT THE OUTCOME OF THE MATCH <span className="text-xs text-red-400 normal-case font-bold ml-auto tracking-normal">({STAGE_POINTS[getStageFromMatchNumber(match.matchNumber!)].winnerPoints} Points)</span>
             </h2>
             <div className={`grid grid-cols-1 gap-4 ${
-              match.matchNumber && roundKeyFromMatchNumber(match.matchNumber) === "knockout"
+              match.matchNumber &&
+              ["knockout", "final8"].includes(roundKeyFromMatchNumber(match.matchNumber))
                 ? "md:grid-cols-2"
                 : "md:grid-cols-3"
             }`}>
-              {(match.matchNumber && roundKeyFromMatchNumber(match.matchNumber) === "knockout"
+              {(match.matchNumber &&
+              ["knockout", "final8"].includes(roundKeyFromMatchNumber(match.matchNumber))
                 ? [match.teamA, match.teamB]
                 : [match.teamA, "DRAW", match.teamB]
               ).map((option) => (
