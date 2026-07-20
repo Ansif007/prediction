@@ -30,7 +30,7 @@ import { formatKickoff, WORLD_CUP_2026_TEAMS, normalizeDepartment, formatDepartm
 import { exportMasterPredictionsReport } from "@/lib/exportPredictionsReport";
 import { useMobileBackToHome } from "@/hooks/useMobileBackToHome";
 import { useAuth } from "@/contexts/AuthContext";
-import { backfillRoundPoints, BackfillResult } from "@/lib/migration";
+import { backfillRoundPoints, backfillFullScores, BackfillResult } from "@/lib/migration";
 import { renumberMatches, RenumberResult } from "@/lib/renumber";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -93,6 +93,8 @@ export default function AdminPage() {
   });
   const [backfilling, setBackfilling] = useState(false);
   const [backfillResult, setBackfillResult] = useState<BackfillResult | null>(null);
+  const [backfillingFullScores, setBackfillingFullScores] = useState(false);
+  const [backfillFullScoresResult, setBackfillFullScoresResult] = useState<BackfillResult | null>(null);
   const [renumbering, setRenumbering] = useState(false);
   const [renumberResult, setRenumberResult] = useState<RenumberResult | null>(null);
   
@@ -440,6 +442,24 @@ export default function AdminPage() {
       });
     } finally {
       setRenumbering(false);
+    }
+  };
+
+  const handleBackfillFullScores = async () => {
+    setBackfillingFullScores(true);
+    setBackfillFullScoresResult(null);
+    try {
+      const res = await backfillFullScores();
+      setBackfillFullScoresResult(res);
+    } catch (err) {
+      setBackfillFullScoresResult({
+        usersProcessed: 0,
+        predictionsProcessed: 0,
+        errors: [err instanceof Error ? err.message : String(err)],
+        success: false,
+      });
+    } finally {
+      setBackfillingFullScores(false);
     }
   };
 
@@ -986,6 +1006,44 @@ export default function AdminPage() {
                 <>✅ Renumbered {renumberResult.matchesProcessed} matches</>
               ) : (
                 <>❌ Failed: {renumberResult.errors.join("; ")}</>
+              )}
+            </div>
+          )}
+
+          <hr className="border-red-600/30" />
+
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="text-sm font-black uppercase tracking-wider text-white font-bebas italic leading-relaxed">
+                🏆 Full Score Tiebreaker
+              </h3>
+              <p className="text-[10px] font-bold text-red-200 uppercase tracking-widest leading-relaxed mt-1">
+                Count perfect predictions (both winner &amp; goals correct) for all users from existing data
+              </p>
+            </div>
+            <button
+              onClick={handleBackfillFullScores}
+              disabled={backfillingFullScores}
+              className="shrink-0 flex items-center gap-2 px-5 py-3 bg-white text-red-700 font-black uppercase tracking-widest rounded-xl text-xs shadow-md hover:bg-red-50 transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {backfillingFullScores ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-red-700/30 border-t-red-700 rounded-full animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>🏅 Backfill Full Scores</>
+              )}
+            </button>
+          </div>
+          {backfillFullScoresResult && (
+            <div className={`p-4 rounded-xl text-xs font-bold uppercase tracking-wider ${
+              backfillFullScoresResult.success ? 'bg-green-900/40 text-green-200' : 'bg-red-900/40 text-red-200'
+            }`}>
+              {backfillFullScoresResult.success ? (
+                <>✅ Scored {backfillFullScoresResult.predictionsProcessed} predictions across {backfillFullScoresResult.usersProcessed} users</>
+              ) : (
+                <>❌ Failed: {backfillFullScoresResult.errors.join("; ")}</>
               )}
             </div>
           )}

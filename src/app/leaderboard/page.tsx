@@ -113,8 +113,11 @@ export default function Leaderboard() {
             ? u.totalPoints || 0
             : (roundPointsMap[u.id]?.[round as keyof RoundPointsData] as number) || 0,
       }))
-      .sort(
-        (a, b) => (b.totalPoints || 0) - (a.totalPoints || 0) || a.name.localeCompare(b.name)
+        .sort(
+        (a, b) =>
+          (b.totalPoints || 0) - (a.totalPoints || 0) ||
+          (b.fullScores || 0) - (a.fullScores || 0) ||
+          a.name.localeCompare(b.name)
       );
     setUsers(sorted);
   }, [roundPointsMap]);

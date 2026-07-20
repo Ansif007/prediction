@@ -5,7 +5,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { Prediction, RoundPointsData } from "@/types";
+import { Match, Prediction, RoundPointsData, UserData } from "@/types";
 import { roundKeyFromMatchNumber } from "@/lib/utils";
 
 export interface BackfillResult {
@@ -119,6 +119,75 @@ export async function backfillRoundPoints(): Promise<BackfillResult> {
       };
 
       batch.set(doc(db, "roundPoints", uid), rpData);
+      count++;
+      result.usersProcessed++;
+
+      if (count % 400 === 0) {
+        await batch.commit();
+        batch = writeBatch(db);
+      }
+    }
+
+    if (count % 400 !== 0) {
+      await batch.commit();
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    result.errors.push(msg);
+    result.success = false;
+  }
+
+  return result;
+}
+
+export async function backfillFullScores(): Promise<BackfillResult> {
+  const result: BackfillResult = {
+    usersProcessed: 0,
+    predictionsProcessed: 0,
+    errors: [],
+    success: true,
+  };
+
+  try {
+    const matchSnap = await getDocs(collection(db, "matches"));
+    const matchMap = new Map<string, Match>();
+    for (const d of matchSnap.docs) {
+      matchMap.set(d.id, { ...(d.data() as Omit<Match, "id">), id: d.id });
+    }
+
+    const predSnap = await getDocs(collection(db, "predictions"));
+    const preds = predSnap.docs.map((d) => ({
+      ...(d.data() as Prediction),
+      id: d.id,
+    }));
+
+    const fullScoreCounts = new Map<string, number>();
+
+    for (const p of preds) {
+      if (!p.pointsAwarded) continue;
+
+      const match = matchMap.get(p.matchId);
+      if (!match || !match.result || !match.totalGoalsResult) {
+        result.errors.push(`Match ${p.matchId}: missing result data`);
+        continue;
+      }
+
+      const bothCorrect =
+        p.winnerPrediction === match.result &&
+        p.goalsPrediction === match.totalGoalsResult;
+
+      if (bothCorrect) {
+        fullScoreCounts.set(p.uid, (fullScoreCounts.get(p.uid) || 0) + 1);
+      }
+
+      result.predictionsProcessed++;
+    }
+
+    let batch = writeBatch(db);
+    let count = 0;
+
+    for (const [uid, fullScores] of fullScoreCounts) {
+      batch.set(doc(db, "users", uid), { fullScores }, { merge: true });
       count++;
       result.usersProcessed++;
 

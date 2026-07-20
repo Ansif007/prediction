@@ -29,6 +29,7 @@ export interface UserData {
   employeeId?: string;
   profileSetup?: boolean;
   showOnLeaderboard?: boolean;
+  fullScores?: number;
   createdAt?: string;
 }
 
