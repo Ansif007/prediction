@@ -168,6 +168,21 @@ export default function Dashboard() {
         </div>
       </header>
 
+      {/* Thank You Banner */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-8 p-6 md:p-8 bg-gradient-to-r from-red-700 to-red-600 rounded-[2rem] text-center shadow-lg"
+      >
+        <Trophy className="w-8 h-8 md:w-10 md:h-10 text-yellow-300 mx-auto mb-3" />
+        <h2 className="text-xl md:text-2xl font-black italic tracking-[0.1em] text-white font-bebas uppercase leading-relaxed">
+          Tournament Complete!
+        </h2>
+        <p className="text-sm md:text-base text-red-100 font-medium mt-2 max-w-md mx-auto leading-relaxed">
+          Thank you for participating in the MRF SRC Prediction Contest. Check the leaderboard for final standings.
+        </p>
+      </motion.div>
+
       <div className="grid gap-4 md:gap-6">
         <div className="flex items-center justify-between mb-2">
           <div className="flex rounded-xl bg-red-50 p-1 gap-1">
