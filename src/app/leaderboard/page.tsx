@@ -443,7 +443,6 @@ export default function Leaderboard() {
             <div className="space-y-3 md:space-y-4 max-w-3xl mx-auto pb-16 md:pb-20">
               {theRest.map((user, index) => {
                 const rank = userRankMap.get(user.id) ?? 0;
-                const isTop10 = rank <= 10;
                 return (
                   <motion.div
                     key={user.id}
@@ -452,10 +451,10 @@ export default function Leaderboard() {
                     transition={{ delay: index * 0.05 }}
                     className="relative overflow-hidden rounded-2xl md:rounded-3xl transition-all bg-white"
                     style={{
-                      borderTop: `1px solid ${isTop10 ? `${WC_RED}15` : '#F1F5F9'}`,
-                      borderRight: `1px solid ${isTop10 ? `${WC_RED}15` : '#F1F5F9'}`,
-                      borderBottom: `1px solid ${isTop10 ? `${WC_RED}15` : '#F1F5F9'}`,
-                      borderLeft: `4px solid ${isTop10 ? WC_RED : '#CBD5E1'}`,
+                      borderTop: '1px solid #F1F5F9',
+                      borderRight: '1px solid #F1F5F9',
+                      borderBottom: '1px solid #F1F5F9',
+                      borderLeft: '4px solid #CBD5E1',
                       boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
                     }}
                   >
@@ -473,8 +472,8 @@ export default function Leaderboard() {
                         <div
                           className="w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center shrink-0 font-oswald font-semibold text-base md:text-lg"
                           style={{
-                            backgroundColor: isTop10 ? WC_RED : '#F1F5F9',
-                            color: isTop10 ? '#fff' : '#94A3B8',
+                            backgroundColor: '#F1F5F9',
+                            color: '#94A3B8',
                           }}
                         >
                           {rank}
@@ -494,10 +493,10 @@ export default function Leaderboard() {
 
                       <div className="text-right shrink-0 ml-3">
                         <div className="flex items-baseline gap-1">
-                          <span className="font-space-mono text-xl md:text-2xl font-bold leading-none" style={{ color: isTop10 ? '#1E293B' : '#94A3B8' }}>
+                          <span className="font-space-mono text-xl md:text-2xl font-bold leading-none" style={{ color: '#94A3B8' }}>
                             {user.totalPoints}
                           </span>
-                          <span className="font-space-mono text-[9px] md:text-xs font-bold uppercase tracking-wider" style={{ color: isTop10 ? '#CBD5E1' : '#E2E8F0' }}>
+                          <span className="font-space-mono text-[9px] md:text-xs font-bold uppercase tracking-wider" style={{ color: '#E2E8F0' }}>
                             PTS
                           </span>
                         </div>
